@@ -71,17 +71,26 @@ export default function OnboardingPage() {
   return (
     <div>
       <h1 className="page-title">Founder Profile</h1>
-      <p className="page-subtitle">Help the AI match ideas to your skills, resources, and constraints</p>
+      <p className="page-subtitle" style={{ marginBottom: 40 }}>Help the AI match ideas to your unique unfair advantages and constraints.</p>
 
-      <div style={{ maxWidth: 700 }}>
-        <div className="card" style={{ marginBottom: 24 }}>
-          <h3 className="section-title">Your Skills</h3>
-          <div className="tag-container">
+      <div style={{ maxWidth: 800 }}>
+        <div className="card" style={{ marginBottom: 32, padding: 32 }}>
+          <h3 className="section-title">Your Technical & Growth Skills</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', marginBottom: 20 }}>Select all that apply. Ideas requiring deep expertise in areas you lack will be penalized in Winnability.</p>
+          <div className="tag-container" style={{ gap: 12 }}>
             {SKILL_OPTIONS.map((skill) => (
               <button
                 key={skill}
                 className={`tag ${profile.skills.includes(skill) ? 'tag-accent' : ''}`}
-                style={{ cursor: 'pointer', border: profile.skills.includes(skill) ? 'none' : '1px solid var(--border)' }}
+                style={{ 
+                  cursor: 'pointer', 
+                  border: profile.skills.includes(skill) ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: profile.skills.includes(skill) ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                  padding: '8px 16px',
+                  fontSize: '0.95rem',
+                  color: profile.skills.includes(skill) ? 'var(--accent)' : 'var(--text-secondary)',
+                  transition: 'all 0.2s'
+                }}
                 onClick={() => toggleSkill(skill)}
               >
                 {skill}
@@ -90,45 +99,46 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="form-row">
+        <div className="card" style={{ marginBottom: 32, padding: 32 }}>
+          <h3 className="section-title">Resources</h3>
+          <div className="form-row" style={{ marginBottom: 24 }}>
             <div className="form-group">
-              <label className="label">Budget</label>
-              <select className="select" value={profile.budget} onChange={(e) => setProfile({ ...profile, budget: e.target.value })}>
-                <option value="bootstrap">Bootstrap ($0 - $1K)</option>
-                <option value="small">Small ($1K - $10K)</option>
-                <option value="medium">Medium ($10K - $50K)</option>
-                <option value="funded">Funded ($50K+)</option>
+              <label className="label">Initial Budget Validation</label>
+              <select className="select" style={{ padding: '12px 16px' }} value={profile.budget} onChange={(e) => setProfile({ ...profile, budget: e.target.value })}>
+                <option value="bootstrap">Hardcore Bootstrap ($0 - $1K)</option>
+                <option value="small">Self-Funded ($1K - $10K)</option>
+                <option value="medium">Angel/Pre-Seed ($10K - $100K)</option>
+                <option value="funded">Venture Backed ($100K+)</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="label">Team Size</label>
-              <select className="select" value={profile.teamSize} onChange={(e) => setProfile({ ...profile, teamSize: Number(e.target.value) })}>
-                <option value={1}>Solo Founder</option>
-                <option value={2}>2 People</option>
-                <option value={3}>3-5 People</option>
-                <option value={5}>5+ People</option>
+              <label className="label">Founding Team Size</label>
+              <select className="select" style={{ padding: '12px 16px' }} value={profile.teamSize} onChange={(e) => setProfile({ ...profile, teamSize: Number(e.target.value) })}>
+                <option value={1}>Solo Founder (One-Person Army)</option>
+                <option value={2}>Dynamic Duo (2 People)</option>
+                <option value={3}>Small Strike Team (3-5 People)</option>
+                <option value={5}>Venture Studio / Studio (5+ People)</option>
               </select>
             </div>
           </div>
 
           <div className="form-group">
             <label className="label">Time Commitment</label>
-            <select className="select" value={profile.timeCommitment} onChange={(e) => setProfile({ ...profile, timeCommitment: e.target.value })}>
-              <option value="full-time">Full-time</option>
-              <option value="part-time">Part-time (20h/week)</option>
-              <option value="side-project">Side project (10h/week)</option>
-              <option value="evenings">Evenings & weekends only</option>
+            <select className="select" style={{ padding: '12px 16px' }} value={profile.timeCommitment} onChange={(e) => setProfile({ ...profile, timeCommitment: e.target.value })}>
+              <option value="full-time">Full-time (All in, burn the boats)</option>
+              <option value="part-time">Part-time (~20h/week)</option>
+              <option value="side-project">Nights & Weekends (~10h/week)</option>
             </select>
           </div>
         </div>
 
-        <div className="card" style={{ marginBottom: 24 }}>
-          <div className="form-group">
-            <label className="label">Preferred Industries (optional)</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <input className="input" value={industryInput} onChange={(e) => setIndustryInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && industryInput.trim()) { setProfile({ ...profile, industries: [...profile.industries, industryInput.trim()] }); setIndustryInput(''); }}} placeholder="e.g. healthcare..." />
-              <button className="btn btn-secondary btn-sm" onClick={() => { if (industryInput.trim()) { setProfile({ ...profile, industries: [...profile.industries, industryInput.trim()] }); setIndustryInput(''); }}}>Add</button>
+        <div className="card" style={{ marginBottom: 40, padding: 32 }}>
+          <h3 className="section-title">Industry Preferences</h3>
+          <div className="form-group" style={{ marginBottom: 24 }}>
+            <label className="label">Industries you have an unfair advantage in (optional)</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <input className="input" style={{ flex: 1, padding: '12px 16px' }} value={industryInput} onChange={(e) => setIndustryInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && industryInput.trim()) { setProfile({ ...profile, industries: [...profile.industries, industryInput.trim()] }); setIndustryInput(''); }}} placeholder="e.g. healthcare, B2B SaaS, e-commerce..." />
+              <button className="btn btn-secondary" style={{ padding: '0 24px' }} onClick={() => { if (industryInput.trim()) { setProfile({ ...profile, industries: [...profile.industries, industryInput.trim()] }); setIndustryInput(''); }}}>Add</button>
             </div>
             <div className="tag-container">
               {profile.industries.map((ind) => (
@@ -138,10 +148,11 @@ export default function OnboardingPage() {
           </div>
 
           <div className="form-group">
-            <label className="label">Deal Breakers (optional)</label>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <input className="input" value={breakerInput} onChange={(e) => setBreakerInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && breakerInput.trim()) { setProfile({ ...profile, dealBreakers: [...profile.dealBreakers, breakerInput.trim()] }); setBreakerInput(''); }}} placeholder="e.g. heavy regulation..." />
-              <button className="btn btn-secondary btn-sm" onClick={() => { if (breakerInput.trim()) { setProfile({ ...profile, dealBreakers: [...profile.dealBreakers, breakerInput.trim()] }); setBreakerInput(''); }}}>Add</button>
+            <label className="label">Ultimate Deal Breakers (optional)</label>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 12 }}>What will make you instantly hate the business? (e.g. Needs sales team, physical inventory, regulated markets)</p>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+              <input className="input" style={{ flex: 1, padding: '12px 16px' }} value={breakerInput} onChange={(e) => setBreakerInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && breakerInput.trim()) { setProfile({ ...profile, dealBreakers: [...profile.dealBreakers, breakerInput.trim()] }); setBreakerInput(''); }}} placeholder="e.g. heavy compliance, low margin..." />
+              <button className="btn btn-secondary" style={{ padding: '0 24px' }} onClick={() => { if (breakerInput.trim()) { setProfile({ ...profile, dealBreakers: [...profile.dealBreakers, breakerInput.trim()] }); setBreakerInput(''); }}}>Add</button>
             </div>
             <div className="tag-container">
               {profile.dealBreakers.map((db) => (
@@ -151,8 +162,8 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <button className="btn btn-primary btn-lg" onClick={save}>
-          {saved ? '✅ Saved!' : '💾 Save Profile'}
+        <button className="btn btn-primary btn-lg" style={{ width: '100%', padding: '20px', fontSize: '1.2rem' }} onClick={save}>
+          {saved ? '✅ Profile Saved Successfully!' : '💾 Save Founder Profile'}
         </button>
       </div>
     </div>

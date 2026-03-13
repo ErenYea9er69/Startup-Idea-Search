@@ -68,32 +68,36 @@ export default function Dashboard() {
       <p className="page-subtitle">AI-powered startup idea research and brutal validation</p>
 
       <div className="stats-grid">
-        <div className="card stat-card">
+        <div className="card stat-card" style={{ borderTop: '2px solid var(--accent)' }}>
           <div className="stat-value">{totalRuns}</div>
           <div className="stat-label">Pipeline Runs</div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card" style={{ borderTop: '2px solid var(--emerald)' }}>
           <div className="stat-value">{promisingCount}</div>
           <div className="stat-label">Promising Ideas</div>
         </div>
-        <div className="card stat-card">
-          <div className="stat-value" style={{ fontSize: 24 }}>
+        <div className="card stat-card" style={{ borderTop: '2px solid var(--cyan)' }}>
+          <div className="stat-value" style={{ fontSize: '2rem' }}>
             {activeRun ? '🔄 Running' : '⏸ Idle'}
           </div>
           <div className="stat-label">Pipeline Status</div>
         </div>
-        <div className="card stat-card">
+        <div className="card stat-card" style={{ borderTop: '2px solid var(--violet)' }}>
           <div className="stat-value">{(totalTokens / 1000).toFixed(0)}K</div>
           <div className="stat-label">Tokens Used</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32 }}>
-        <Link href="/pipeline">
-          <button className="btn btn-primary btn-lg">🚀 Start New Pipeline</button>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 48 }}>
+        <Link href="/pipeline" style={{ textDecoration: 'none' }}>
+          <button className="btn btn-primary btn-lg">
+            <span style={{ fontSize: '1.2rem' }}>🚀</span> Start New Pipeline
+          </button>
         </Link>
-        <Link href="/ideas">
-          <button className="btn btn-secondary btn-lg">💡 Browse Ideas</button>
+        <Link href="/ideas" style={{ textDecoration: 'none' }}>
+          <button className="btn btn-secondary btn-lg">
+            <span style={{ fontSize: '1.2rem' }}>💡</span> Browse Ideas
+          </button>
         </Link>
       </div>
 
@@ -102,8 +106,8 @@ export default function Dashboard() {
           <h2 className="section-title">Top Promising Ideas</h2>
           <div className="ideas-grid">
             {ideas.slice(0, 6).map((idea) => (
-              <Link key={idea.id} href={`/ideas/${idea.id}`}>
-                <div className="card idea-card">
+              <Link key={idea.id} href={`/ideas/${idea.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div className="card idea-card" style={{ padding: 24, borderRadius: 'var(--radius-lg)' }}>
                   <div className="idea-header">
                     <div className="idea-name">{idea.name}</div>
                     <div className={`score-badge ${getScoreClass(idea.overallScore)}`}>
@@ -123,13 +127,11 @@ export default function Dashboard() {
       )}
 
       {ideas.length === 0 && !activeRun && (
-        <div className="empty-state">
-          <div className="empty-state-icon">🔍</div>
-          <div className="empty-state-title">No ideas yet</div>
-          <div className="empty-state-text">
-            Launch a pipeline to start discovering startup opportunities
-          </div>
-          <Link href="/pipeline">
+        <div className="card" style={{ textAlign: 'center', padding: '60px 20px', borderStyle: 'dashed' }}>
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.8 }}>🔍</div>
+          <h3 className="section-title" style={{ marginBottom: 8 }}>No ideas yet</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>Launch a pipeline to start discovering startup opportunities</p>
+          <Link href="/pipeline" style={{ textDecoration: 'none' }}>
             <button className="btn btn-primary">Start Your First Pipeline</button>
           </Link>
         </div>

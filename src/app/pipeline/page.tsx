@@ -166,27 +166,26 @@ export default function PipelinePage() {
       <p className="page-subtitle">Configure and launch your startup idea search pipeline</p>
 
       {!isRunning ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
           <div className="card">
-            <h3 className="section-title">Configuration</h3>
+            <h3 className="section-title">Pipeline Configuration</h3>
 
             <div className="form-group">
               <label className="label">Focus Areas / Industries</label>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                 <input
                   className="input"
                   value={focusInput}
                   onChange={(e) => setFocusInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addFocus()}
-                  placeholder="e.g. healthcare, logistics..."
+                  placeholder="e.g. healthcare, logistics, AI..."
                 />
-                <button className="btn btn-secondary btn-sm" onClick={addFocus}>Add</button>
+                <button className="btn btn-secondary" onClick={addFocus}>Add</button>
               </div>
               <div className="tag-container">
                 {focusAreas.map((a) => (
                   <span key={a} className="tag tag-accent">
-                    {a}
-                    <span className="tag-remove" onClick={() => setFocusAreas(focusAreas.filter((x) => x !== a))}>✕</span>
+                    {a} <span className="tag-remove" onClick={() => setFocusAreas(focusAreas.filter((x) => x !== a))}>✕</span>
                   </span>
                 ))}
               </div>
@@ -194,21 +193,20 @@ export default function PipelinePage() {
 
             <div className="form-group">
               <label className="label">Excluded Categories</label>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                 <input
                   className="input"
                   value={excludeInput}
                   onChange={(e) => setExcludeInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addExclude()}
-                  placeholder="e.g. crypto, social media..."
+                  placeholder="e.g. crypto, social media, dating apps..."
                 />
-                <button className="btn btn-secondary btn-sm" onClick={addExclude}>Add</button>
+                <button className="btn btn-secondary" onClick={addExclude}>Add</button>
               </div>
               <div className="tag-container">
                 {excluded.map((a) => (
                   <span key={a} className="tag tag-rose">
-                    {a}
-                    <span className="tag-remove" onClick={() => setExcluded(excluded.filter((x) => x !== a))}>✕</span>
+                    {a} <span className="tag-remove" onClick={() => setExcluded(excluded.filter((x) => x !== a))}>✕</span>
                   </span>
                 ))}
               </div>
@@ -216,7 +214,7 @@ export default function PipelinePage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label className="label">Score Threshold: {threshold}/100</label>
+                <label className="label">Score Threshold: <span style={{ color: 'var(--accent)', fontSize: '1rem' }}>{threshold}/100</span></label>
                 <input
                   type="range"
                   className="slider"
@@ -227,7 +225,7 @@ export default function PipelinePage() {
                 />
               </div>
               <div className="form-group">
-                <label className="label">Max Iterations: {maxIterations}</label>
+                <label className="label">Max Iterations: <span style={{ color: 'var(--accent)', fontSize: '1rem' }}>{maxIterations}</span></label>
                 <input
                   type="range"
                   className="slider"
@@ -245,35 +243,35 @@ export default function PipelinePage() {
                 className="textarea"
                 value={customCriteria}
                 onChange={(e) => setCustomCriteria(e.target.value)}
-                placeholder="Any additional criteria for the AI to consider..."
+                placeholder="Any additional brutal constraints for the AI to consider (e.g. 'Must be buildable by 1 dev in 1 week')..."
               />
             </div>
           </div>
 
-          <div>
-            <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ position: 'sticky', top: 24 }}>
+            <div className="card" style={{ marginBottom: 24, borderTop: '2px solid var(--emerald)' }}>
               <h3 className="section-title">Cost Estimate</h3>
               {estimate ? (
                 <div>
-                  <div className="stat-value" style={{ fontSize: 20, marginBottom: 8 }}>
-                    ~{((estimate.estimatedTokens as number) / 1000).toFixed(0)}K tokens
+                  <div className="stat-value" style={{ fontSize: '2.5rem', marginBottom: 8 }}>
+                    ~{((estimate.estimatedTokens as number) / 1000).toFixed(0)}K <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>tokens</span>
                   </div>
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  <div className="tag tag-emerald" style={{ display: 'inline-flex' }}>
                     ~{estimate.estimatedTavilyCredits as number} Tavily credits
                   </div>
                 </div>
               ) : (
-                <button className="btn btn-secondary" onClick={getEstimate}>Calculate Estimate</button>
+                <button className="btn btn-secondary" onClick={getEstimate} style={{ width: '100%' }}>Calculate Estimate</button>
               )}
             </div>
 
             <button
               className="btn btn-primary btn-lg"
-              style={{ width: '100%', justifyContent: 'center' }}
+              style={{ width: '100%', padding: '20px' }}
               onClick={startPipeline}
               disabled={isRunning}
             >
-              🚀 Launch Pipeline
+               <span style={{ fontSize: '1.2rem' }}>🚀</span> Launch Pipeline
             </button>
           </div>
         </div>
@@ -289,9 +287,9 @@ export default function PipelinePage() {
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: 32 }}>
             <div className="card">
-              <h3 className="section-title">Progress</h3>
+              <h3 className="section-title">Validation Progress</h3>
               <div className="pipeline-phases">
                 {Object.entries(PHASE_LABELS).map(([key, label]) => {
                   const isDone = completedPhases.includes(key);
@@ -299,33 +297,38 @@ export default function PipelinePage() {
                   return (
                     <div key={key} className={`phase-item ${isActive ? 'active' : ''} ${isDone ? 'done' : ''}`}>
                       <div className="phase-dot" />
-                      <span className="phase-name">{label}</span>
-                      <span className="phase-status">{isDone ? '✓' : isActive ? '...' : ''}</span>
+                      <div style={{ flex: 1 }}>
+                        <div className="phase-name">{label}</div>
+                        {(isActive || isDone) && (
+                           <div className="phase-status">{isDone ? 'Completed successfully' : 'Running...'}</div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            <div className="card" style={{ maxHeight: 600, overflowY: 'auto' }}>
-              <h3 className="section-title">Live Feed</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {events.map((e, i) => (
-                  <div key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ color: getEventColor(e.type), fontWeight: 600 }}>
-                      {getEventIcon(e.type)} {e.type}
-                    </span>
-                    {' — '}
-                    <span>{formatEventData(e)}</span>
-                  </div>
-                ))}
-                <div ref={eventsEndRef} />
-              </div>
-              {events.length === 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)' }}>
-                  <div className="spinner" /> Starting pipeline...
+            <div>
+              <h3 className="section-title" style={{ marginBottom: 16 }}>Live Terminal Feed</h3>
+              <div className="terminal-feed" style={{ height: '600px', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {events.map((e, i) => (
+                    <div key={i} className="terminal-line">
+                      <span style={{ color: getEventColor(e.type), fontWeight: 'bold' }}>
+                        [{getEventIcon(e.type)} {e.type.toUpperCase()}]
+                      </span>
+                      <span style={{ color: '#aaa', marginLeft: 8 }}>{formatEventData(e)}</span>
+                    </div>
+                  ))}
+                  {events.length === 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--emerald)', padding: 16 }}>
+                      <div className="spinner" style={{ borderTopColor: 'var(--emerald)' }} /> Initialize Sequence...
+                    </div>
+                  )}
+                  <div ref={eventsEndRef} />
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

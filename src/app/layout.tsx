@@ -9,12 +9,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+     <html lang="en">
       <body>
         <div className="app-layout">
           <aside className="sidebar">
             <div className="sidebar-logo">⚡ StartupEngine</div>
-            <div className="sidebar-subtitle">AI Validator</div>
+            <div className="sidebar-subtitle">AI Idea Validator</div>
             <nav className="sidebar-nav">
               <Link href="/" className="nav-link">
                 <span className="nav-icon">📊</span>
