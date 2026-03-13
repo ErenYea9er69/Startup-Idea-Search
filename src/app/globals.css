@@ -722,3 +722,39 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg-main); }
 ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 5px; border: 2px solid var(--bg-main); }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+.btn-small {
+  padding: 4px 10px;
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid #2dd4bf;
+  color: #2dd4bf;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-small:hover {
+  background: #2dd4bf;
+  color: #000;
+}
+
+.btn-small-rose {
+  padding: 4px 10px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid #f43f5e;
+  color: #f43f5e;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-small-rose:hover {
+  background: #f43f5e;
+  color: #fff;
+}

@@ -69,13 +69,17 @@ export async function thinkDeep(
     }
   }, 3);
 
-  const content = response.choices[0]?.message?.content || '';
-  const usage = response.usage;
+  const content = response?.choices?.[0]?.message?.content || '';
+  const usage = response?.usage;
   if (usage) {
     totalTokensUsed += (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
   }
 
-  console.log(`[LongCat] thinkDeep success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  if (content) {
+    console.log(`[LongCat] thinkDeep success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  } else {
+    console.warn(`[LongCat] thinkDeep returned empty content. Response:`, JSON.stringify(response));
+  }
   return content;
 }
 
@@ -113,12 +117,16 @@ export async function thinkFast(
     }
   }, 3);
 
-  const content = response.choices[0]?.message?.content || '';
-  const usage = response.usage;
+  const content = response?.choices?.[0]?.message?.content || '';
+  const usage = response?.usage;
   if (usage) {
     totalTokensUsed += (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
   }
 
-  console.log(`[LongCat] thinkFast success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  if (content) {
+    console.log(`[LongCat] thinkFast success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  } else {
+    console.warn(`[LongCat] thinkFast returned empty content. Response:`, JSON.stringify(response));
+  }
   return content;
 }

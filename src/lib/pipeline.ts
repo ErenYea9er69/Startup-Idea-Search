@@ -79,9 +79,13 @@ export async function runPipeline(
       ? `Skills: ${JSON.stringify(founderProfile.skills)}, Budget: ${founderProfile.budget}, Team: ${founderProfile.teamSize}, Time: ${founderProfile.timeCommitment}`
       : 'No profile set — assume solo technical founder';
 
-    // Load rejected ideas
-    const rejectedIdeas = await prisma.rejectedIdea.findMany();
-    const rejectedNames = rejectedIdeas.map((r) => `${r.name} (rejected because: ${r.reason})`);
+    // Load rejected ideas (Deep Failure Memory)
+    const rejectedIdeas = await prisma.rejectedIdea.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+    const rejectedContext = rejectedIdeas.map((r) => `- ${r.name}: ${r.reason} (Failed Phase: ${r.failedPhase || 'Unknown'})`).join('\n');
+    const rejectedNamesOnly = rejectedIdeas.map(r => r.name);
 
     let iteration = 0;
     let hasWinners = false;
@@ -106,12 +110,15 @@ export async function runPipeline(
         const previousFailures = iteration > 1
           ? (await prisma.iteration.findMany({ where: { runId }, orderBy: { number: 'desc' }, take: 1 }))
               .map((i) => JSON.stringify(i.failureLessons || ''))
-          : [];
+              .join('\n')
+          : '';
+
+        const fullFailureContext = `HISTORICAL REJECTIONS:\n${rejectedContext}\n\nPREVIOUS ITERATION LESSONS:\n${previousFailures}`;
 
         const researchPlanRaw = await planResearch(
           config.focusAreas,
           config.excludedCategories,
-          [...rejectedNames.slice(0, 10), ...previousFailures],
+          fullFailureContext,
           founderProfile ? (founderProfile.skills as string[]) : [],
           config.customCriteria
         );
@@ -123,7 +130,11 @@ export async function runPipeline(
 
       // ═══ STEP 2: Build Search Queries ═══
       emit('phase_start', { phase: 'building_queries', iteration });
-      const queriesRaw = await buildSearchQueries(researchPlanRaw, config.focusAreas, rejectedNames.slice(0, 10));
+      const queriesRaw = await buildSearchQueries(
+        researchPlanRaw, 
+        config.focusAreas, 
+        fullFailureContext
+      );
       const queries = safeJsonParse(queriesRaw) as { queries?: { query: string; type: string }[] };
       const queryList = queries.queries || [];
       emit('queries_built', { queries: queryList });
@@ -188,7 +199,7 @@ export async function runPipeline(
       // ═══ STEP 6: Generate Ideas ═══
       emit('phase_start', { phase: 'generating_ideas', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'generating_ideas', currentStep: 6 } });
-      const ideasRaw = await generateIdeas(synthesisRaw, rejectedNames, founderStr, config.customCriteria);
+      const ideasRaw = await generateIdeas(synthesisRaw, rejectedNamesOnly, founderStr, config.customCriteria);
       const ideasData = safeJsonParse(ideasRaw) as { ideas?: Record<string, unknown>[] };
       const ideas = ideasData.ideas || [];
       emit('ideas_generated', { count: ideas.length, ideas: ideas.map((i) => ({ name: i.name, industry: i.industry })) });
@@ -230,7 +241,7 @@ export async function runPipeline(
 
       // ═══ STEP 8: Quick Screen ═══
       emit('phase_start', { phase: 'screening', iteration });
-      const screenRaw = await quickScreen(JSON.stringify(ideas), rejectedNames);
+      const screenRaw = await quickScreen(JSON.stringify(ideas), rejectedNamesOnly);
       const screenData = safeJsonParse(screenRaw) as { survivors?: { name: string }[]; killed?: { name: string; reason: string }[] };
       const survivorNames = (screenData.survivors || []).map((s) => s.name);
       const survivors = ideas.filter((i) => survivorNames.includes(String(i.name)));

@@ -189,6 +189,11 @@ export default function PipelinePage() {
                   </span>
                 ))}
               </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                {['B2B SaaS', 'HealthTech', 'Agentic AI', 'Fintech', 'CleanTech', 'EdTech'].map(p => (
+                   <button key={p} className="btn-small" onClick={() => !focusAreas.includes(p) && setFocusAreas([...focusAreas, p])}>+ {p}</button>
+                ))}
+              </div>
             </div>
 
             <div className="form-group">
@@ -208,6 +213,11 @@ export default function PipelinePage() {
                   <span key={a} className="tag tag-rose">
                     {a} <span className="tag-remove" onClick={() => setExcluded(excluded.filter((x) => x !== a))}>✕</span>
                   </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                {['Crypto', 'Gambling', 'Dating', 'Dropshipping', 'AI Wrappers', 'Social Media'].map(p => (
+                   <button key={p} className="btn-small-rose" onClick={() => !excluded.includes(p) && setExcluded([...excluded, p])}>+ {p}</button>
                 ))}
               </div>
             </div>

@@ -158,7 +158,9 @@ export async function searchStartupEcosystem(
 export async function searchTrends(
   industry: string
 ): Promise<{ results: SearchResult[]; answer?: string }> {
-  return search(`${industry} startup trends 2025 2026 emerging opportunities`, {
+  const year = new Date().getFullYear();
+  const nextYear = year + 1;
+  return search(`${industry} startup trends ${year} ${nextYear} emerging opportunities`, {
     searchDepth: 'basic',
     maxResults: 10,
     topic: 'news',
