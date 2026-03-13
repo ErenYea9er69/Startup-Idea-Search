@@ -4,7 +4,7 @@ export async function finalScoring(idea: string, allPhaseResults: string, founde
   const messages = [
     {
       role: 'system' as const,
-      content: `You are the final scoring judge. Phase 8: FINAL SCORING & VERDICT. Score the idea on 14 dimensions, compute composite scores, classify into a category, and deliver a final verdict. Be ruthlessly honest.`,
+      content: `Final scoring for this startup idea. RUTHLESS ADVISOR. Keep reasoning very concise (1-2 sentences). JSON ONLY.`,
     },
     {
       role: 'user' as const,

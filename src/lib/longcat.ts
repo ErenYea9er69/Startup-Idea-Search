@@ -53,7 +53,7 @@ export async function thinkDeep(
   messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
   options: ChatOptions = {}
 ): Promise<string> {
-  const { temperature = 0.7, maxTokens = 8192, jsonMode = false } = options;
+  const { temperature = 0.7, jsonMode = false } = options;
 
   const response = await retryWithBackoff(async () => {
     await throttle();
@@ -62,9 +62,17 @@ export async function thinkDeep(
         model: 'longcat-flash-thinking-2601',
         messages,
         temperature,
-        max_tokens: maxTokens,
+        max_tokens: 16384, // Increased to accommodate deep reasoning
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
+      
+      // TRUNCATION DETECTION
+      if (result.choices?.[0]?.finish_reason === 'length') {
+        const error = new Error('LLM output was truncated due to length. Retrying with conciseness focus...');
+        (error as any).isTruncated = true;
+        throw error;
+      }
+
       return result;
     } catch (error: any) {
       const status = error?.status;
@@ -86,14 +94,14 @@ export async function thinkDeep(
 
   const content = response?.choices?.[0]?.message?.content || '';
   const usage = response?.usage;
+  
   if (usage) {
     totalTokensUsed += (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
   }
 
-  if (content) {
-    console.log(`[LongCat] thinkDeep success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
-  } else {
+  if (!content) {
     console.warn(`[LongCat] thinkDeep returned empty content. Response:`, JSON.stringify(response));
+    throw new Error('LLM returned empty content. Retrying...');
   }
   return content;
 }

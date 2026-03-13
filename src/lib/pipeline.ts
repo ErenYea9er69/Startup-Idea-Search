@@ -39,18 +39,22 @@ export interface PipelineEvent {
 type EventCallback = (event: PipelineEvent) => void;
 
 function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Record<string, unknown> {
+  if (!text) return fallback;
   try {
-    // Attempt to find JSON block
+    // Basic cleanup
     const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const cleaned = jsonMatch[0].trim();
-      return JSON.parse(cleaned);
-    }
+    let jsonStr = jsonMatch ? jsonMatch[0] : text;
     
-    // Fallback to original cleaning if no match
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(cleaned);
-  } catch {
+    // JSON REPAIR: If it looks truncated (missing closing braces), try to fix
+    let openBraces = (jsonStr.match(/\{/g) || []).length;
+    let closeBraces = (jsonStr.match(/\}/g) || []).length;
+    if (openBraces > closeBraces) {
+      console.warn(`[Pipeline] Attempting to repair truncated JSON (${openBraces} vs ${closeBraces})`);
+      jsonStr += '}'.repeat(openBraces - closeBraces);
+    }
+
+    return JSON.parse(jsonStr);
+  } catch (err) {
     console.warn('[Pipeline] Failed to parse JSON from text:', text.substring(0, 100) + '...');
     return fallback;
   }
@@ -281,16 +285,25 @@ export async function runPipeline(
 
         // Helper for micro-phase retries within the idea validation
         const runPhase = async (name: string, phase: number, fn: () => Promise<string>) => {
-          return await retryWithBackoff(async () => {
-             emit('validation', { idea: ideaName, phase, name });
-             const raw = await fn();
-             const parsed = safeJsonParse(raw);
-             // Basic ghost protection: if it's empty or null, something went wrong
-             if (!parsed || Object.keys(parsed).length === 0) {
-               throw new Error(`Empty response from AI in ${name}`);
-             }
-             return { raw, parsed };
-          }, 2); // 2 internal retries per phase
+          // HEARTBEAT: Prevent 30min stream timeout during long calculations
+          const heartbeat = setInterval(() => {
+            emit('pulse', { idea: ideaName, phase });
+          }, 30000); // Pulse every 30s
+
+          try {
+            return await retryWithBackoff(async () => {
+               emit('validation', { idea: ideaName, phase, name });
+               const raw = await fn();
+               const parsed = safeJsonParse(raw);
+               // Basic ghost protection: if it's empty or null, something went wrong
+               if (!parsed || Object.keys(parsed).length === 0) {
+                 throw new Error(`Empty response from AI in ${name}`);
+               }
+               return { raw, parsed };
+            }, 2); // 2 internal retries per phase
+          } finally {
+            clearInterval(heartbeat);
+          }
         };
 
         try {
