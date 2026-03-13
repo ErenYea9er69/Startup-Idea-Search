@@ -48,10 +48,21 @@ export default function PipelinePage() {
     fetch('/api/preferences')
       .then((r) => r.json())
       .then((prefs) => {
-        if (prefs.focusAreas) setFocusAreas(prefs.focusAreas);
-        if (prefs.excludedCategories) setExcluded(prefs.excludedCategories);
+        if (!prefs || prefs.error) return;
+        
+        try { 
+          const focus = typeof prefs.focusAreas === 'string' ? JSON.parse(prefs.focusAreas) : (prefs.focusAreas || []);
+          if (focus.length) setFocusAreas(focus);
+        } catch {}
+        
+        try {
+          const excl = typeof prefs.excludedCategories === 'string' ? JSON.parse(prefs.excludedCategories) : (prefs.excludedCategories || []);
+          if (excl.length) setExcluded(excl);
+        } catch {}
+        
         if (prefs.scoringThreshold) setThreshold(prefs.scoringThreshold);
         if (prefs.maxIterations) setMaxIterations(prefs.maxIterations);
+        if (prefs.customCriteria) setCustomCriteria(prefs.customCriteria);
       })
       .catch(() => {});
   }, []);

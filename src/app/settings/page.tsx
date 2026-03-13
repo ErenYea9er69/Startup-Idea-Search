@@ -29,7 +29,24 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/preferences')
       .then((r) => r.json())
-      .then((p) => { if (p) setPrefs(p); })
+      .then((p) => {
+        if (!p || p.error) return;
+        
+        let focusAreas = [];
+        let excludedCategories = [];
+        try { focusAreas = typeof p.focusAreas === 'string' ? JSON.parse(p.focusAreas) : (p.focusAreas || []); } catch {}
+        try { excludedCategories = typeof p.excludedCategories === 'string' ? JSON.parse(p.excludedCategories) : (p.excludedCategories || []); } catch {}
+
+        setPrefs({
+          focusAreas,
+          excludedCategories,
+          scoringThreshold: p.scoringThreshold ?? 70,
+          maxIterations: p.maxIterations ?? 5,
+          searchDepth: p.searchDepth || 'advanced',
+          country: p.country || null,
+          customCriteria: p.customCriteria || null,
+        });
+      })
       .catch(() => {});
   }, []);
 

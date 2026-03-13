@@ -30,13 +30,22 @@ export default function OnboardingPage() {
     fetch('/api/profile')
       .then((r) => r.json())
       .then((p) => {
-        if (p && p.id) setProfile({
-          skills: p.skills || [],
+        if (!p || p.error || !p.id) return;
+        
+        let skills = [];
+        let industries = [];
+        let dealBreakers = [];
+        try { skills = typeof p.skills === 'string' ? JSON.parse(p.skills) : (p.skills || []); } catch {}
+        try { industries = typeof p.industries === 'string' ? JSON.parse(p.industries) : (p.industries || []); } catch {}
+        try { dealBreakers = typeof p.dealBreakers === 'string' ? JSON.parse(p.dealBreakers) : (p.dealBreakers || []); } catch {}
+
+        setProfile({
+          skills,
           budget: p.budget || 'bootstrap',
           teamSize: p.teamSize || 1,
           timeCommitment: p.timeCommitment || 'full-time',
-          industries: p.industries || [],
-          dealBreakers: p.dealBreakers || [],
+          industries,
+          dealBreakers,
         });
       })
       .catch(() => {});
