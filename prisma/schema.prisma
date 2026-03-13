@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model FounderProfile {
+  id             String  @id @default("default")
+  skills         Json    @default("[]")
+  budget         String  @default("bootstrap")
+  teamSize       Int     @default(1)
+  timeCommitment String  @default("full-time")
+  industries     Json    @default("[]")
+  dealBreakers   Json    @default("[]")
+}
+
+model PipelineRun {
+  id              String      @id @default(uuid())
+  status          String      @default("queued")
+  config          Json
+  currentPhase    String?
+  currentStep     Int         @default(0)
+  totalIterations Int         @default(0)
+  tokensUsed      Int         @default(0)
+  tavilyCredits   Int         @default(0)
+  estimatedCost   Json?
+  errorLog        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  iterations      Iteration[]
+  ideas           Idea[]
+}
+
+model Iteration {
+  id                  String      @id @default(uuid())
+  runId               String
+  run                 PipelineRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  number              Int
+  researchBrief       Json?
+  searchQueries       Json?
+  rawSearchResults    Json?
+  filteredResults     Json?
+  synthesizedResearch String?       @db.LongText
+  generatedIdeas      Json?
+  trapIdeas           Json?
+  pivotReason         String?     @db.Text
+  failureLessons      Json?
+  createdAt           DateTime    @default(now())
+
+  @@index([runId])
+}
+
+model Idea {
+  id                String       @id @default(uuid())
+  runId             String?
+  run               PipelineRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  name              String
+  industry          String
+  businessType      String?
+  problem           String       @db.Text
+  customer          String
+  budgetOwner       String?
+  currentWorkaround String?      @db.Text
+  whyNow            String?      @db.Text
+  fastestMVP        String?      @db.Text
+  goToMarket        String?      @db.Text
+  status            String       @default("promising")
+  category          String?
+  overallScore      Int?
+  scores            Json?
+  compositeScores   Json?
+  validation        Json?
+  sources           Json?
+  competitors       Json?
+  failureReasons    Json?
+  founderFitScore   Int?
+  userNotes         String?      @db.Text
+  parentIdeaId      String?
+  actionPlan        Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  chatMessages      ChatMessage[]
+
+  @@index([runId])
+  @@index([status])
+  @@index([category])
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  ideaId    String
+  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([ideaId])
+}
+
+model RejectedIdea {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  reason      String   @db.Text
+  category    String?
+  failedPhase String?
+  createdAt   DateTime @default(now())
+}
+
+model SearchCache {
+  id        String   @id @default(uuid())
+  queryHash String   @unique
+  query     String
+  results   Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([queryHash])
+  @@index([expiresAt])
+}
+
+model UserPreference {
+  id                 String @id @default("default")
+  focusAreas         Json   @default("[]")
+  excludedCategories Json   @default("[]")
+  scoringThreshold   Int    @default(70)
+  maxIterations      Int    @default(5)
+  searchDepth        String @default("advanced")
+  country            String?
+  customCriteria     String? @db.Text
+  targetDomains      Json    @default("[]")
+}
