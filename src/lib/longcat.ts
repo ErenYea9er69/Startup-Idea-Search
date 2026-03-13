@@ -15,7 +15,7 @@ function getClient(): OpenAI {
   if (apiKeys.length === 0) throw new Error('No LongCat API keys provided');
   return new OpenAI({
     apiKey: apiKeys[currentKeyIndex],
-    baseURL: 'https://api.longcat.chat/v1',
+    baseURL: 'https://api.longcat.chat/openai',
   });
 }
 
@@ -43,31 +43,40 @@ export async function thinkDeep(
 
   const response = await retryWithBackoff(async () => {
     try {
-      return await getClient().chat.completions.create({
+      const result = await getClient().chat.completions.create({
         model: 'longcat-flash-thinking-2601',
         messages,
         temperature,
         max_tokens: maxTokens,
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
+      return result;
     } catch (error: any) {
-      if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) {
-        const nextIndex = (currentKeyIndex + 1) % apiKeys.length;
-        if (nextIndex !== currentKeyIndex) {
-          currentKeyIndex = nextIndex;
-          console.log(`[LongCat] API error (${error?.status}). Switching to API Key ${currentKeyIndex + 1}/${apiKeys.length}`);
+      const status = error?.status;
+      const message = error?.message;
+      const body = error?.response?.body;
+      
+      console.error(`[LongCat] API error (${status}): ${message}`, body ? `Body: ${JSON.stringify(body)}` : '');
+
+      if (status === 401 || status === 403 || status === 404 || status === 429) {
+        if (apiKeys.length > 1) {
+          const prevIndex = currentKeyIndex;
+          currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+          console.log(`[LongCat] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;
     }
   }, 3);
 
+  const content = response.choices[0]?.message?.content || '';
   const usage = response.usage;
   if (usage) {
     totalTokensUsed += (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
   }
 
-  return response.choices[0]?.message?.content || '';
+  console.log(`[LongCat] thinkDeep success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  return content;
 }
 
 export async function thinkFast(
@@ -78,29 +87,38 @@ export async function thinkFast(
 
   const response = await retryWithBackoff(async () => {
     try {
-      return await getClient().chat.completions.create({
+      const result = await getClient().chat.completions.create({
         model: 'longcat-flash-chat',
         messages,
         temperature,
         max_tokens: maxTokens,
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
+      return result;
     } catch (error: any) {
-      if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) {
-        const nextIndex = (currentKeyIndex + 1) % apiKeys.length;
-        if (nextIndex !== currentKeyIndex) {
-          currentKeyIndex = nextIndex;
-          console.log(`[LongCat] API error (${error?.status}). Switching to API Key ${currentKeyIndex + 1}/${apiKeys.length}`);
+      const status = error?.status;
+      const message = error?.message;
+      const body = error?.response?.body;
+      
+      console.error(`[LongCat] API error (${status}): ${message}`, body ? `Body: ${JSON.stringify(body)}` : '');
+
+      if (status === 401 || status === 403 || status === 404 || status === 429) {
+        if (apiKeys.length > 1) {
+          const prevIndex = currentKeyIndex;
+          currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+          console.log(`[LongCat] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;
     }
   }, 3);
 
+  const content = response.choices[0]?.message?.content || '';
   const usage = response.usage;
   if (usage) {
     totalTokensUsed += (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
   }
 
-  return response.choices[0]?.message?.content || '';
+  console.log(`[LongCat] thinkFast success. Model: ${response.model}, Tokens: ${usage?.total_tokens || 0}, Content: ${content.substring(0, 100).replace(/\n/g, ' ')}...`);
+  return content;
 }

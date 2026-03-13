@@ -76,7 +76,7 @@ async function search(
 
   const response = await retryWithBackoff(async () => {
     try {
-      return await getClient().search(query, {
+      const res = await getClient().search(query, {
         searchDepth,
         maxResults,
         ...(includeDomains && { includeDomains }),
@@ -85,10 +85,14 @@ async function search(
         ...(timeRange && { timeRange }),
         ...(includeAnswer && { includeAnswer: true }),
       });
+      return res;
     } catch (error: any) {
-      if (currentKeyIndex < apiKeys.length - 1) {
-        currentKeyIndex++;
-        console.log(`[Tavily] Error encountered. Switching to backup API Key ${currentKeyIndex + 1}`);
+      console.error(`[Tavily] Search error for query "${query}":`, error?.message || error);
+      
+      if (apiKeys.length > 1) {
+        const prevIndex = currentKeyIndex;
+        currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
+        console.log(`[Tavily] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
       }
       throw error;
     }
@@ -105,6 +109,11 @@ async function search(
     })),
     answer: typeof response.answer === 'string' ? response.answer : undefined,
   };
+
+  console.log(`[Tavily] Search success for "${query}". Results: ${result.results.length}, Answer: ${result.answer ? 'Yes' : 'No'}`);
+  if (result.results.length > 0) {
+    console.log(`[Tavily] Top result: ${result.results[0].title} (${result.results[0].url})`);
+  }
 
   if (useCache) {
     await setCachedResults(query, result);

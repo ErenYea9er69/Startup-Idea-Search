@@ -39,9 +39,18 @@ type EventCallback = (event: PipelineEvent) => void;
 
 function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Record<string, unknown> {
   try {
+    // Attempt to find JSON block
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const cleaned = jsonMatch[0].trim();
+      return JSON.parse(cleaned);
+    }
+    
+    // Fallback to original cleaning if no match
     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     return JSON.parse(cleaned);
   } catch {
+    console.warn('[Pipeline] Failed to parse JSON from text:', text.substring(0, 100) + '...');
     return fallback;
   }
 }
@@ -76,6 +85,7 @@ export async function runPipeline(
 
     let iteration = 0;
     let hasWinners = false;
+    let successCount = 0;
 
     while (iteration < config.maxIterations && !hasWinners) {
       iteration++;
@@ -89,24 +99,27 @@ export async function runPipeline(
       }
 
       try {
-      // ═══ STEP 1: Research Planning ═══
-      emit('phase_start', { phase: 'research_planning', iteration });
-      await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'research_planning', currentStep: 1 } });
+        // ═══ STEP 1: Research Planning ═══
+        emit('phase_start', { phase: 'research_planning', iteration });
+        await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'research_planning', currentStep: 1 } });
 
-      const previousFailures = iteration > 1
-        ? (await prisma.iteration.findMany({ where: { runId }, orderBy: { number: 'desc' }, take: 1 }))
-            .map((i) => JSON.stringify(i.failureLessons || ''))
-        : [];
+        const previousFailures = iteration > 1
+          ? (await prisma.iteration.findMany({ where: { runId }, orderBy: { number: 'desc' }, take: 1 }))
+              .map((i) => JSON.stringify(i.failureLessons || ''))
+          : [];
 
-      const researchPlanRaw = await planResearch(
-        config.focusAreas,
-        config.excludedCategories,
-        [...rejectedNames.slice(0, 10), ...previousFailures],
-        founderProfile ? (founderProfile.skills as string[]) : [],
-        config.customCriteria
-      );
-      const researchPlan = safeJsonParse(researchPlanRaw);
-      emit('research_plan', { plan: researchPlan });
+        const researchPlanRaw = await planResearch(
+          config.focusAreas,
+          config.excludedCategories,
+          [...rejectedNames.slice(0, 10), ...previousFailures],
+          founderProfile ? (founderProfile.skills as string[]) : [],
+          config.customCriteria
+        );
+        const researchPlan = safeJsonParse(researchPlanRaw);
+        if (!researchPlan || Object.keys(researchPlan).length === 0) {
+           throw new Error('Failed to generate valid research plan JSON');
+        }
+        emit('research_plan', { plan: researchPlan });
 
       // ═══ STEP 2: Build Search Queries ═══
       emit('phase_start', { phase: 'building_queries', iteration });
@@ -415,6 +428,7 @@ export async function runPipeline(
         },
       });
 
+      successCount++;
       } catch (iterationError) {
         const errMsg = iterationError instanceof Error ? iterationError.message : String(iterationError);
         console.error(`[Pipeline] Iteration ${iteration} failed: ${errMsg}`);
@@ -422,6 +436,10 @@ export async function runPipeline(
         // Continue to next iteration instead of crashing the entire pipeline
         continue;
       }
+    }
+
+    if (successCount === 0 && iteration > 0) {
+      throw new Error(`Pipeline failed: All ${iteration} iterations encountered errors. Check logs for details.`);
     }
 
     // ═══ PIPELINE COMPLETE ═══
