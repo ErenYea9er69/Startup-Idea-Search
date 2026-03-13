@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { retryWithBackoff } from './retryHandler';
 import { searchMarketGaps, searchStartupEcosystem, searchTrends, searchCompetitors, verifyProblem, searchPricing, getTavilyCredits, resetCreditCounter, SearchResult } from './tavily';
 import { getTokensUsed, resetTokenCounter } from './longcat';
 import { filterSearchResults, summarizeResults } from './qualityFilter';
@@ -261,87 +262,118 @@ export async function runPipeline(
       emit('phase_start', { phase: 'deep_validation', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'deep_validation', currentStep: 9 } });
 
-      const validationPromises = survivors.map(async (idea) => {
-        const ideaStr = JSON.stringify(idea);
+      // ═══ STEP 9: Deep Validation ═══
+      emit('phase_start', { phase: 'deep_validation', iteration });
+      await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'deep_validation', currentStep: 9 } });
+
+      const validatedResults: any[] = [];
+      
+      // Sequential processing to prevent API bursts and handle each idea with full retry attention
+      for (const idea of survivors) {
         const ideaName = String(idea.name);
         const ideaIndustry = String(idea.industry);
         const ideaProblem = String(idea.problem || '');
+        const ideaStr = JSON.stringify(idea);
+
+        let problemEvidence: any = { results: [] };
+        let compResults: any = { results: [] };
+        let pricingResults: any = { results: [] };
+
+        // Helper for micro-phase retries within the idea validation
+        const runPhase = async (name: string, phase: number, fn: () => Promise<string>) => {
+          return await retryWithBackoff(async () => {
+             emit('validation', { idea: ideaName, phase, name });
+             const raw = await fn();
+             const parsed = safeJsonParse(raw);
+             // Basic ghost protection: if it's empty or null, something went wrong
+             if (!parsed || Object.keys(parsed).length === 0) {
+               throw new Error(`Empty response from AI in ${name}`);
+             }
+             return { raw, parsed };
+          }, 2); // 2 internal retries per phase
+        };
 
         try {
-          // Phase 1: Problem Reality + Tavily verify
-          emit('validation', { idea: ideaName, phase: 1, name: 'Problem Reality Test' });
-          const problemEvidence = await verifyProblem(ideaProblem, ideaIndustry);
-          const phase1Raw = await validateProblem(ideaStr, summarizeResults(problemEvidence.results));
-          const phase1 = safeJsonParse(phase1Raw);
+          // Phase 1: Problem Reality
+          const { parsed: phase1, raw: phase1Raw } = await runPhase('Problem Reality Test', 1, async () => {
+            problemEvidence = await verifyProblem(ideaProblem, ideaIndustry);
+            return await validateProblem(ideaStr, summarizeResults(problemEvidence.results));
+          });
 
-          // Phase 2: Competitor Search + Tavily
-          emit('validation', { idea: ideaName, phase: 2, name: 'Competitor Investigation' });
-          const compResults = await searchCompetitors(ideaName, ideaIndustry);
-          const phase2Raw = await validateCompetitors(ideaStr, summarizeResults(compResults.results));
-          const phase2 = safeJsonParse(phase2Raw);
+          // Phase 2: Competitor Investigation
+          const { parsed: phase2, raw: phase2Raw } = await runPhase('Competitor Investigation', 2, async () => {
+            compResults = await searchCompetitors(ideaName, ideaIndustry);
+            return await validateCompetitors(ideaStr, summarizeResults(compResults.results));
+          });
 
           // Phase 3: Competition Saturation
-          emit('validation', { idea: ideaName, phase: 3, name: 'Competition Saturation' });
-          const phase3Raw = await validateCompetition(ideaStr, phase2Raw);
-          const phase3 = safeJsonParse(phase3Raw);
+          const { parsed: phase3, raw: phase3Raw } = await runPhase('Competition Saturation', 3, async () => {
+            return await validateCompetition(ideaStr, phase2Raw);
+          });
 
           // Phase 4: Build Feasibility
-          emit('validation', { idea: ideaName, phase: 4, name: 'Build Feasibility' });
-          const phase4Raw = await validateFeasibility(ideaStr, founderStr);
-          const phase4 = safeJsonParse(phase4Raw);
+          const { parsed: phase4 } = await runPhase('Build Feasibility', 4, async () => {
+            return await validateFeasibility(ideaStr, founderStr);
+          });
 
-          // Phase 5: Market & Monetization + Tavily
-          emit('validation', { idea: ideaName, phase: 5, name: 'Market & Monetization' });
-          const pricingResults = await searchPricing(ideaName, ideaIndustry);
-          const phase5Raw = await validateMarket(ideaStr, summarizeResults(pricingResults.results));
-          const phase5 = safeJsonParse(phase5Raw);
+          // Phase 5: Market & Monetization
+          const { parsed: phase5 } = await runPhase('Market & Monetization', 5, async () => {
+            pricingResults = await searchPricing(ideaName, ideaIndustry);
+            return await validateMarket(ideaStr, summarizeResults(pricingResults.results));
+          });
 
           // Phase 6: Differentiation
-          emit('validation', { idea: ideaName, phase: 6, name: 'Differentiation Stress Test' });
-          const phase6Raw = await validateDifferentiation(ideaStr, phase2Raw);
-          const phase6 = safeJsonParse(phase6Raw);
+          const { parsed: phase6 } = await runPhase('Differentiation Stress Test', 6, async () => {
+            return await validateDifferentiation(ideaStr, phase2Raw);
+          });
 
           // Phase 7: Failure Scenarios
-          emit('validation', { idea: ideaName, phase: 7, name: 'Failure Scenarios' });
-          const contextSoFar = JSON.stringify({ phase1, phase2, phase3, phase4, phase5, phase6 });
-          const phase7Raw = await validateFailures(ideaStr, contextSoFar);
-          const phase7 = safeJsonParse(phase7Raw);
+          const { parsed: phase7 } = await runPhase('Failure Scenarios', 7, async () => {
+            const contextSoFar = JSON.stringify({ phase1, phase2, phase3, phase4, phase5, phase6 });
+            return await validateFailures(ideaStr, contextSoFar);
+          });
 
           // Phase 8: Final Scoring
-          emit('validation', { idea: ideaName, phase: 8, name: 'Final Scoring' });
-          const allPhases = JSON.stringify({ phase1, phase2, phase3, phase4, phase5, phase6, phase7 });
-          const phase8Raw = await finalScoring(ideaStr, allPhases, founderStr);
-          const phase8 = safeJsonParse(phase8Raw);
+          const { parsed: phase8 } = await runPhase('Final Scoring', 8, async () => {
+            const allPhases = JSON.stringify({ phase1, phase2, phase3, phase4, phase5, phase6, phase7 });
+            const raw = await finalScoring(ideaStr, allPhases, founderStr);
+            const parsed = safeJsonParse(raw);
+            
+            // GHOST IDEA PROTECTION: Ensure scores exist and are valid
+            const s = parsed.scores || {};
+            const total = Object.values(s).reduce((a: any, b: any) => a + b, 0);
+            if (total === 0) {
+              throw new Error("GHOST IDEA DETECTED: AI returned 0 scores on all metrics. Retrying final scoring.");
+            }
+            return raw;
+          });
 
           // Collect sources
           const sources = [
-            ...problemEvidence.results.map((r) => r.url),
-            ...compResults.results.map((r) => r.url),
-            ...pricingResults.results.map((r) => r.url),
+            ...(problemEvidence.results || []).map((r: any) => r.url),
+            ...(compResults.results || []).map((r: any) => r.url),
+            ...(pricingResults.results || []).map((r: any) => r.url),
           ].filter(Boolean).slice(0, 20);
-
-          const overallScore = Number((phase8.compositeScores as Record<string, number>)?.overallWinnability || 0);
-
-          return {
+          
+          validatedResults.push({
             idea,
             validation: { phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8 },
             scores: phase8.scores,
             compositeScores: phase8.compositeScores,
-            overallScore,
+            overallScore: Number((phase8.compositeScores as any)?.overallWinnability || 0),
             category: phase8.category,
             verdict: phase8.verdict,
             verdictLabel: phase8.verdictLabel,
             founderFitScore: phase8.founderFitScore,
             competitors: phase2.competitors,
             sources,
-          };
+          });
+
         } catch (err) {
           emit('validation_error', { idea: ideaName, error: String(err) });
-          return null;
+          console.error(`[Pipeline] Failed to validate idea ${ideaName}:`, err);
         }
-      });
-
-      const validatedResults = (await Promise.all(validationPromises)).filter(Boolean);
+      }
 
       // ═══ STEP 10: Score & Decide ═══
       emit('phase_start', { phase: 'scoring', iteration });

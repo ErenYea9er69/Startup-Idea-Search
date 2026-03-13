@@ -11,11 +11,25 @@ const apiKeys = [
 
 let currentKeyIndex = 0;
 
+let lastCallTime = 0;
+const MIN_INTERVAL = 500; // 500ms between calls
+
+async function throttle() {
+  const now = Date.now();
+  const timeSinceLast = now - lastCallTime;
+  if (timeSinceLast < MIN_INTERVAL) {
+    const wait = MIN_INTERVAL - timeSinceLast;
+    await new Promise(r => setTimeout(r, wait));
+  }
+  lastCallTime = Date.now();
+}
+
 function getClient(): OpenAI {
   if (apiKeys.length === 0) throw new Error('No LongCat API keys provided');
   return new OpenAI({
     apiKey: apiKeys[currentKeyIndex],
     baseURL: 'https://api.longcat.chat/openai',
+    timeout: 120000, // 120 seconds
   });
 }
 
@@ -42,6 +56,7 @@ export async function thinkDeep(
   const { temperature = 0.7, maxTokens = 8192, jsonMode = false } = options;
 
   const response = await retryWithBackoff(async () => {
+    await throttle();
     try {
       const result = await getClient().chat.completions.create({
         model: 'longcat-flash-thinking-2601',
@@ -90,6 +105,7 @@ export async function thinkFast(
   const { temperature = 0.7, maxTokens = 4096, jsonMode = false } = options;
 
   const response = await retryWithBackoff(async () => {
+    await throttle();
     try {
       const result = await getClient().chat.completions.create({
         model: 'longcat-flash-chat',
