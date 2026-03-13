@@ -88,6 +88,7 @@ export async function runPipeline(
         return;
       }
 
+      try {
       // ═══ STEP 1: Research Planning ═══
       emit('phase_start', { phase: 'research_planning', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'research_planning', currentStep: 1 } });
@@ -413,6 +414,14 @@ export async function runPipeline(
           currentStep: 12,
         },
       });
+
+      } catch (iterationError) {
+        const errMsg = iterationError instanceof Error ? iterationError.message : String(iterationError);
+        console.error(`[Pipeline] Iteration ${iteration} failed: ${errMsg}`);
+        emit('iteration_error', { iteration, error: errMsg });
+        // Continue to next iteration instead of crashing the entire pipeline
+        continue;
+      }
     }
 
     // ═══ PIPELINE COMPLETE ═══

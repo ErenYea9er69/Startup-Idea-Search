@@ -51,10 +51,11 @@ export async function thinkDeep(
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
     } catch (error: any) {
-      if (error?.status === 401 || error?.status === 403 || error?.status === 429) {
-        if (currentKeyIndex < apiKeys.length - 1) {
-          currentKeyIndex++;
-          console.log(`[LongCat] Rate limit or auth error. Switching to backup API Key ${currentKeyIndex + 1}`);
+      if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) {
+        const nextIndex = (currentKeyIndex + 1) % apiKeys.length;
+        if (nextIndex !== currentKeyIndex) {
+          currentKeyIndex = nextIndex;
+          console.log(`[LongCat] API error (${error?.status}). Switching to API Key ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;
@@ -85,10 +86,11 @@ export async function thinkFast(
         ...(jsonMode && { response_format: { type: 'json_object' } }),
       });
     } catch (error: any) {
-      if (error?.status === 401 || error?.status === 403 || error?.status === 429) {
-        if (currentKeyIndex < apiKeys.length - 1) {
-          currentKeyIndex++;
-          console.log(`[LongCat] Rate limit or auth error. Switching to backup API Key ${currentKeyIndex + 1}`);
+      if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) {
+        const nextIndex = (currentKeyIndex + 1) % apiKeys.length;
+        if (nextIndex !== currentKeyIndex) {
+          currentKeyIndex = nextIndex;
+          console.log(`[LongCat] API error (${error?.status}). Switching to API Key ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;

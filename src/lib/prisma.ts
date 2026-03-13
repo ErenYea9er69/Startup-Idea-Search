@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 
 const prismaClientSingleton = () => {
-  console.log("DB URL IS:", process.env.DATABASE_URL);
   const dbUrl = new URL(process.env.DATABASE_URL || 'mariadb://root@localhost:3306/startup_search');
   const adapter = new PrismaMariaDb({
     host: dbUrl.hostname,

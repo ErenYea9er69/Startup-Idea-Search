@@ -1,6 +1,6 @@
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
+  maxRetries: number = 5,
   baseDelay: number = 1000
 ): Promise<T> {
   let lastError: Error | undefined;
