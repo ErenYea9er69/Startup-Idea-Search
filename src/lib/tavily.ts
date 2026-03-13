@@ -2,7 +2,18 @@ import { tavily } from '@tavily/core';
 import { retryWithBackoff } from './retryHandler';
 import { getCachedResults, setCachedResults } from './searchCache';
 
-const client = tavily({ apiKey: process.env.TAVILY_API_KEY! });
+const apiKeys = [
+  process.env.TAVILY_API_KEY,
+  process.env.TAVILY_API_KEY_2,
+  process.env.TAVILY_API_KEY_3,
+].filter(Boolean) as string[];
+
+let currentKeyIndex = 0;
+
+function getClient() {
+  if (apiKeys.length === 0) throw new Error('No Tavily API keys provided');
+  return tavily({ apiKey: apiKeys[currentKeyIndex] });
+}
 
 let totalCreditsUsed = 0;
 
@@ -64,15 +75,23 @@ async function search(
   }
 
   const response = await retryWithBackoff(async () => {
-    return client.search(query, {
-      searchDepth,
-      maxResults,
-      ...(includeDomains && { includeDomains }),
-      ...(excludeDomains && { excludeDomains }),
-      topic,
-      ...(timeRange && { timeRange }),
-      ...(includeAnswer && { includeAnswer: true }),
-    });
+    try {
+      return await getClient().search(query, {
+        searchDepth,
+        maxResults,
+        ...(includeDomains && { includeDomains }),
+        ...(excludeDomains && { excludeDomains }),
+        topic,
+        ...(timeRange && { timeRange }),
+        ...(includeAnswer && { includeAnswer: true }),
+      });
+    } catch (error: any) {
+      if (currentKeyIndex < apiKeys.length - 1) {
+        currentKeyIndex++;
+        console.log(`[Tavily] Error encountered. Switching to backup API Key ${currentKeyIndex + 1}`);
+      }
+      throw error;
+    }
   }, 3);
 
   totalCreditsUsed += searchDepth === 'advanced' ? 2 : 1;

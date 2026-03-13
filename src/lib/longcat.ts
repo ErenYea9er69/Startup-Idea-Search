@@ -1,10 +1,23 @@
 import OpenAI from 'openai';
 import { retryWithBackoff } from './retryHandler';
 
-const client = new OpenAI({
-  apiKey: process.env.LONGCAT_API_KEY,
-  baseURL: 'https://api.longcat.chat/v1',
-});
+const apiKeys = [
+  process.env.LONGCAT_API_KEY,
+  process.env.LONGCAT_API_KEY_2,
+  process.env.LONGCAT_API_KEY_3,
+  process.env.LONGCAT_API_KEY_4,
+  process.env.LONGCAT_API_KEY_5,
+].filter(Boolean) as string[];
+
+let currentKeyIndex = 0;
+
+function getClient(): OpenAI {
+  if (apiKeys.length === 0) throw new Error('No LongCat API keys provided');
+  return new OpenAI({
+    apiKey: apiKeys[currentKeyIndex],
+    baseURL: 'https://api.longcat.chat/v1',
+  });
+}
 
 let totalTokensUsed = 0;
 
@@ -29,13 +42,23 @@ export async function thinkDeep(
   const { temperature = 0.7, maxTokens = 8192, jsonMode = false } = options;
 
   const response = await retryWithBackoff(async () => {
-    return client.chat.completions.create({
-      model: 'longcat-flash-thinking-2601',
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...(jsonMode && { response_format: { type: 'json_object' } }),
-    });
+    try {
+      return await getClient().chat.completions.create({
+        model: 'longcat-flash-thinking-2601',
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        ...(jsonMode && { response_format: { type: 'json_object' } }),
+      });
+    } catch (error: any) {
+      if (error?.status === 401 || error?.status === 403 || error?.status === 429) {
+        if (currentKeyIndex < apiKeys.length - 1) {
+          currentKeyIndex++;
+          console.log(`[LongCat] Rate limit or auth error. Switching to backup API Key ${currentKeyIndex + 1}`);
+        }
+      }
+      throw error;
+    }
   }, 3);
 
   const usage = response.usage;
@@ -53,13 +76,23 @@ export async function thinkFast(
   const { temperature = 0.7, maxTokens = 4096, jsonMode = false } = options;
 
   const response = await retryWithBackoff(async () => {
-    return client.chat.completions.create({
-      model: 'longcat-flash-chat',
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      ...(jsonMode && { response_format: { type: 'json_object' } }),
-    });
+    try {
+      return await getClient().chat.completions.create({
+        model: 'longcat-flash-chat',
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        ...(jsonMode && { response_format: { type: 'json_object' } }),
+      });
+    } catch (error: any) {
+      if (error?.status === 401 || error?.status === 403 || error?.status === 429) {
+        if (currentKeyIndex < apiKeys.length - 1) {
+          currentKeyIndex++;
+          console.log(`[LongCat] Rate limit or auth error. Switching to backup API Key ${currentKeyIndex + 1}`);
+        }
+      }
+      throw error;
+    }
   }, 3);
 
   const usage = response.usage;
