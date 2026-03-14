@@ -49,7 +49,7 @@ export async function GET(
           closed = true;
           try { controller.close(); } catch {}
         }
-      }, 5000); // Check every 5s
+      }, 1000); // Check every 1s
 
       // Connection remains open indefinitely until pipeline finishes
     },

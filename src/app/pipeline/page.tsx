@@ -115,9 +115,11 @@ export default function PipelinePage() {
       setRunId(data.id);
 
       // Start SSE with auto-reconnect logic
-      let eventSource: EventSource;
+      let eventSource: EventSource | null = null;
+      let activelyRunning = true; // Use local variable to avoid React state closure stall
+
       const connect = () => {
-        if (!isRunning) return;
+        if (!activelyRunning) return;
         
         eventSource = new EventSource(`/api/pipeline/${data.id}/stream`);
         
@@ -152,7 +154,8 @@ export default function PipelinePage() {
             }
 
             if (event.type === 'stream_end' || event.type === 'complete' || event.type === 'error') {
-              eventSource.close();
+              activelyRunning = false;
+              eventSource?.close();
               setIsRunning(false);
             }
           } catch {}
@@ -160,9 +163,9 @@ export default function PipelinePage() {
 
         eventSource.onerror = () => {
           console.warn("[Pipeline] Stream interrupted. Attempting reconnect...");
-          eventSource.close();
+          eventSource?.close();
           // Only reconnect if we didn't explicitly stop and it's not a terminal state
-          if (isRunning) {
+          if (activelyRunning) {
             setTimeout(connect, 2000);
           }
         };
