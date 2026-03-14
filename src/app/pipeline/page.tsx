@@ -114,37 +114,61 @@ export default function PipelinePage() {
       const data = await res.json();
       setRunId(data.id);
 
-      // Start SSE
-      const eventSource = new EventSource(`/api/pipeline/${data.id}/stream`);
-      eventSource.onmessage = (e) => {
-        try {
-          const event: PipelineEvent = JSON.parse(e.data);
-          setEvents((prev) => [...prev, event]);
+      // Start SSE with auto-reconnect logic
+      let eventSource: EventSource;
+      const connect = () => {
+        if (!isRunning) return;
+        
+        eventSource = new EventSource(`/api/pipeline/${data.id}/stream`);
+        
+        eventSource.onmessage = (e) => {
+          try {
+            const event: PipelineEvent = JSON.parse(e.data);
+            
+            // Filter out pulse events from terminal feed but use them for internal state if needed
+            if (event.type === 'pulse') {
+              // Just show a subtle heart emoji to signify life
+              setEvents((prev) => {
+                const last = prev[prev.length - 1];
+                if (last?.type === 'pulse') return prev; // Don't stack pulses
+                return [...prev, event];
+              });
+              return;
+            }
 
-          if (event.type === 'phase_start') {
-            const phase = event.data.phase as string;
-            setCurrentPhase(phase);
-            setCompletedPhases((prev) =>
-              prev.includes(currentPhase) ? prev : currentPhase ? [...prev, currentPhase] : prev
-            );
-          }
+            setEvents((prev) => [...prev, event]);
 
-          if (event.type === 'iteration_start') {
-            setIteration(event.data.iteration as number);
-            setMaxIter(event.data.maxIterations as number);
-          }
+            if (event.type === 'phase_start') {
+              const phase = event.data.phase as string;
+              setCurrentPhase(phase);
+              setCompletedPhases((prev) =>
+                prev.includes(currentPhase) ? prev : currentPhase ? [...prev, currentPhase] : prev
+              );
+            }
 
-          if (event.type === 'stream_end' || event.type === 'complete' || event.type === 'error') {
-            eventSource.close();
-            setIsRunning(false);
+            if (event.type === 'iteration_start') {
+              setIteration(event.data.iteration as number);
+              setMaxIter(event.data.maxIterations as number);
+            }
+
+            if (event.type === 'stream_end' || event.type === 'complete' || event.type === 'error') {
+              eventSource.close();
+              setIsRunning(false);
+            }
+          } catch {}
+        };
+
+        eventSource.onerror = () => {
+          console.warn("[Pipeline] Stream interrupted. Attempting reconnect...");
+          eventSource.close();
+          // Only reconnect if we didn't explicitly stop and it's not a terminal state
+          if (isRunning) {
+            setTimeout(connect, 2000);
           }
-        } catch {}
+        };
       };
 
-      eventSource.onerror = () => {
-        eventSource.close();
-        setIsRunning(false);
-      };
+      connect();
     } catch {
       setIsRunning(false);
     }
@@ -363,12 +387,14 @@ function getEventIcon(type: string): string {
   if (type === 'search_result') return '🔍';
   if (type === 'complete') return '🏁';
   if (type === 'error') return '💥';
+  if (type === 'pulse') return '🫀';
   return '•';
 }
 
 function formatEventData(event: PipelineEvent): string {
   const d = event.data;
   switch (event.type) {
+    case 'pulse': return `Heuristic check: still thinking about ${d.idea}...`;
     case 'phase_start': return String(d.phase || '');
     case 'search_result': return `"${d.query}" → ${d.resultCount} results`;
     case 'ideas_generated': return `${d.count} ideas generated`;

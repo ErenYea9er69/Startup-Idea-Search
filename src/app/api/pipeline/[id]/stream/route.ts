@@ -23,11 +23,16 @@ export async function GET(
           const status = global.__pipelineStatus?.[id];
 
           // Send new events
-          while (lastIndex < events.length) {
-            const event = events[lastIndex];
-            const data = `data: ${JSON.stringify(event)}\n\n`;
-            controller.enqueue(encoder.encode(data));
-            lastIndex++;
+          if (lastIndex < events.length) {
+            while (lastIndex < events.length) {
+              const event = events[lastIndex];
+              const data = `data: ${JSON.stringify(event)}\n\n`;
+              controller.enqueue(encoder.encode(data));
+              lastIndex++;
+            }
+          } else {
+            // Heartbeat to keep connection alive
+            controller.enqueue(encoder.encode(': ping\n\n'));
           }
 
           // Close stream when pipeline is done
@@ -44,16 +49,9 @@ export async function GET(
           closed = true;
           try { controller.close(); } catch {}
         }
-      }, 500);
+      }, 5000); // Check every 5s
 
-      // Timeout after 30 minutes
-      setTimeout(() => {
-        if (!closed) {
-          clearInterval(interval);
-          closed = true;
-          try { controller.close(); } catch {}
-        }
-      }, 30 * 60 * 1000);
+      // Connection remains open indefinitely until pipeline finishes
     },
   });
 
