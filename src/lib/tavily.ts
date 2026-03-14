@@ -76,15 +76,27 @@ async function search(
 
   const response = await retryWithBackoff(async () => {
     try {
-      const res = await getClient().search(query, {
+      // Conflict Prevention: If the query contains date operators (after:, before:, since:, until:),
+      // we must strip the timeRange parameter to avoid "When time_range is set, start_date or end_date cannot be set" error.
+      const hasDateOperators = /\b(after:|before:|since:|until:)\b/i.test(query);
+      const activeOptions = {
         searchDepth,
         maxResults,
         ...(includeDomains && { includeDomains }),
         ...(excludeDomains && { excludeDomains }),
         topic,
-        ...(timeRange && { timeRange }),
         ...(includeAnswer && { includeAnswer: true }),
-      });
+      };
+
+      if (timeRange) {
+        if (hasDateOperators) {
+          console.warn(`[Tavily] Query contains date operators. Skipping timeRange: "${timeRange}" for query: "${query}"`);
+        } else {
+          (activeOptions as any).timeRange = timeRange;
+        }
+      }
+
+      const res = await getClient().search(query, activeOptions);
       return res;
     } catch (error: any) {
       console.error(`[Tavily] Search error for query "${query}":`, error?.message || error);
