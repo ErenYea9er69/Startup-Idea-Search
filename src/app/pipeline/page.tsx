@@ -30,7 +30,26 @@ export default function PipelinePage() {
   const [maxIterations, setMaxIterations] = useState(3);
   const [customCriteria, setCustomCriteria] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
+
+  const stopAllPipelines = async () => {
+    if (!confirm('🛑 WARNING: This will kill ALL active pipelines on the server. Procede?')) return;
+    setIsStopping(true);
+    try {
+      await fetch('/api/pipeline/stop-all', { method: 'POST' });
+      setEvents(prev => [...prev, { 
+        type: 'error', 
+        data: { error: '🚨 GLOBAL KILL SWITCH ACTIVATED. Stopping all background tasks...' }, 
+        timestamp: new Date().toISOString() 
+      }]);
+      setIsRunning(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsStopping(false);
+    }
+  };
   const [events, setEvents] = useState<PipelineEvent[]>([]);
   const [currentPhase, setCurrentPhase] = useState('');
   const [completedPhases, setCompletedPhases] = useState<string[]>([]);
@@ -306,19 +325,36 @@ export default function PipelinePage() {
               className="btn btn-primary btn-lg"
               style={{ width: '100%', padding: '20px' }}
               onClick={startPipeline}
-              disabled={isRunning}
+              disabled={isRunning || isStopping}
             >
                <span style={{ fontSize: '1.2rem' }}>🚀</span> Launch Pipeline
+            </button>
+
+            <button
+              className="btn btn-danger"
+              style={{ width: '100%', marginTop: 12, padding: '10px', background: 'rgba(244, 63, 94, 0.1)', borderColor: 'var(--rose)', color: 'var(--rose)' }}
+              onClick={stopAllPipelines}
+              disabled={isStopping}
+            >
+              {isStopping ? '🛑 Stopping...' : '🛑 Stop All Old Pipelines'}
             </button>
           </div>
         </div>
       ) : (
         <div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <button className="btn btn-secondary" onClick={() => controlPipeline('pause')}>⏸ Pause</button>
             <button className="btn btn-danger" onClick={() => controlPipeline('cancel')}>❌ Cancel</button>
+            <button 
+              className="btn btn-danger" 
+              style={{ padding: '8px 16px', fontSize: 13, background: 'rgba(244, 63, 94, 0.2)' }} 
+              onClick={stopAllPipelines}
+              disabled={isStopping}
+            >
+              🛑 Stop All Tasks
+            </button>
             {iteration > 0 && (
-              <span className="tag tag-accent" style={{ padding: '8px 16px', fontSize: 14 }}>
+              <span className="tag tag-accent" style={{ padding: '8px 16px', fontSize: 13, marginLeft: 'auto' }}>
                 Iteration {iteration}/{maxIter}
               </span>
             )}

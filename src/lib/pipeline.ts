@@ -60,6 +60,27 @@ function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Re
   }
 }
 
+async function checkCancellation(runId: string) {
+  const global = globalThis as any;
+  // Check memory first for speed
+  if (global.__pipelineStatus?.[runId] === 'stopped') {
+    throw new Error('Pipeline stopped by user');
+  }
+
+  // Check DB as source of truth
+  const run = await prisma.pipelineRun.findUnique({
+    where: { id: runId },
+    select: { status: true }
+  });
+  
+  if (run?.status === 'stopped') {
+    if (global.__pipelineStatus) {
+      global.__pipelineStatus[runId] = 'stopped';
+    }
+    throw new Error('Pipeline stopped by user');
+  }
+}
+
 export async function runPipeline(
   runId: string,
   config: PipelineConfig,
@@ -97,6 +118,7 @@ export async function runPipeline(
     let successCount = 0;
 
     while (iteration < config.maxIterations && !hasWinners) {
+      await checkCancellation(runId);
       iteration++;
       emit('iteration_start', { iteration, maxIterations: config.maxIterations });
 
@@ -145,6 +167,7 @@ export async function runPipeline(
       emit('queries_built', { queries: queryList });
 
       // ═══ STEP 3: Multi-Angle Search ═══
+      await checkCancellation(runId);
       emit('phase_start', { phase: 'searching', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'searching', currentStep: 3 } });
 
@@ -190,6 +213,7 @@ export async function runPipeline(
       });
 
       // ═══ STEP 5: Synthesize Research ═══
+      await checkCancellation(runId);
       emit('phase_start', { phase: 'synthesizing', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'synthesizing', currentStep: 5 } });
       const synthesisRaw = await synthesizeResearch(searchSummary);
@@ -202,6 +226,7 @@ export async function runPipeline(
       });
 
       // ═══ STEP 6: Generate Ideas ═══
+      await checkCancellation(runId);
       emit('phase_start', { phase: 'generating_ideas', iteration });
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'generating_ideas', currentStep: 6 } });
       const ideasRaw = await generateIdeas(synthesisRaw, rejectedNamesOnly, founderStr, config.customCriteria);
@@ -274,6 +299,7 @@ export async function runPipeline(
       
       // Sequential processing to prevent API bursts and handle each idea with full retry attention
       for (const idea of survivors) {
+        await checkCancellation(runId);
         const ideaName = String(idea.name);
         const ideaIndustry = String(idea.industry);
         const ideaProblem = String(idea.problem || '');
