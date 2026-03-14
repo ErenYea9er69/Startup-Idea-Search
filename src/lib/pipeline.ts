@@ -62,8 +62,11 @@ function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Re
 
 async function checkCancellation(runId: string) {
   const global = globalThis as any;
+  const memStatus = global.__pipelineStatus?.[runId];
+  
   // Check memory first for speed
-  if (global.__pipelineStatus?.[runId] === 'stopped') {
+  if (memStatus === 'stopped') {
+    console.log(`[Pipeline][StopCheck] STOPPED (Memory) for run ${runId}`);
     throw new Error('Pipeline stopped by user');
   }
 
@@ -74,6 +77,7 @@ async function checkCancellation(runId: string) {
   });
   
   if (run?.status === 'stopped') {
+    console.log(`[Pipeline][StopCheck] STOPPED (DB) for run ${runId}`);
     if (global.__pipelineStatus) {
       global.__pipelineStatus[runId] = 'stopped';
     }
@@ -174,6 +178,7 @@ export async function runPipeline(
       const allResults: SearchResult[] = [];
       const searchPromises = queryList.map(async (q) => {
         try {
+          await checkCancellation(runId);
           let results;
           if (q.type === 'ecosystem') {
             results = await searchStartupEcosystem(q.query);
@@ -515,6 +520,13 @@ export async function runPipeline(
         const errMsg = iterationError instanceof Error ? iterationError.message : String(iterationError);
         console.error(`[Pipeline] Iteration ${iteration} failed: ${errMsg}`);
         emit('iteration_error', { iteration, error: errMsg });
+        
+        // If it was stopped by user, don't continue to next iteration
+        if (errMsg.includes('stopped by user')) {
+          console.log(`[Pipeline] Termination confirmed for ${runId}`);
+          return;
+        }
+        
         // Continue to next iteration instead of crashing the entire pipeline
         continue;
       }

@@ -57,6 +57,7 @@ export default function PipelinePage() {
   const [maxIter, setMaxIter] = useState(0);
   const [estimate, setEstimate] = useState<Record<string, unknown> | null>(null);
   const eventsEndRef = useRef<HTMLDivElement>(null);
+  const launchingRef = useRef(false);
 
   useEffect(() => {
     eventsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,6 +112,9 @@ export default function PipelinePage() {
   };
 
   const startPipeline = async () => {
+    if (launchingRef.current) return;
+    launchingRef.current = true;
+
     setIsRunning(true);
     setEvents([]);
     setCompletedPhases([]);
@@ -135,23 +139,20 @@ export default function PipelinePage() {
 
       // Start SSE with auto-reconnect logic
       let eventSource: EventSource | null = null;
-      let activelyRunning = true; // Use local variable to avoid React state closure stall
+      let activelyRunning = true; 
 
       const connect = () => {
         if (!activelyRunning) return;
-        
         eventSource = new EventSource(`/api/pipeline/${data.id}/stream`);
         
         eventSource.onmessage = (e) => {
           try {
             const event: PipelineEvent = JSON.parse(e.data);
             
-            // Filter out pulse events from terminal feed but use them for internal state if needed
             if (event.type === 'pulse') {
-              // Just show a subtle heart emoji to signify life
               setEvents((prev) => {
                 const last = prev[prev.length - 1];
-                if (last?.type === 'pulse') return prev; // Don't stack pulses
+                if (last?.type === 'pulse') return prev;
                 return [...prev, event];
               });
               return;
@@ -183,7 +184,6 @@ export default function PipelinePage() {
         eventSource.onerror = () => {
           console.warn("[Pipeline] Stream interrupted. Attempting reconnect...");
           eventSource?.close();
-          // Only reconnect if we didn't explicitly stop and it's not a terminal state
           if (activelyRunning) {
             setTimeout(connect, 2000);
           }
@@ -191,8 +191,11 @@ export default function PipelinePage() {
       };
 
       connect();
-    } catch {
+    } catch (err) {
+      console.error(err);
       setIsRunning(false);
+    } finally {
+      launchingRef.current = false;
     }
   };
 

@@ -3,10 +3,13 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST() {
   try {
-    // 1. Mark all active runs in DB as stopped
+    const now = new Date();
+
+    // 1. Mark all active runs in DB as stopped (only those created BEFORE this request)
     await prisma.pipelineRun.updateMany({
       where: {
-        status: { in: ['running', 'queued'] }
+        status: { in: ['running', 'queued'] },
+        createdAt: { lt: now }
       },
       data: { status: 'stopped' }
     });
