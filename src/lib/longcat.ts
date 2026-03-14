@@ -29,7 +29,7 @@ function getClient(): OpenAI {
   return new OpenAI({
     apiKey: apiKeys[currentKeyIndex],
     baseURL: 'https://api.longcat.chat/openai',
-    timeout: 120000, // 120 seconds
+    timeout: 300000, // 300 seconds (5 minutes)
   });
 }
 
@@ -81,17 +81,18 @@ export async function thinkDeep(
       
       console.error(`[LongCat] API error (${status}): ${message}`, body ? `Body: ${JSON.stringify(body)}` : '');
 
-      if (status === 401 || status === 403 || status === 404 || status === 429) {
+      const isTimeout = message?.includes('timed out') || message?.includes('timeout') || status === 408;
+
+      if (status === 401 || status === 403 || status === 404 || status === 429 || isTimeout) {
         if (apiKeys.length > 1) {
           const prevIndex = currentKeyIndex;
           currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-          console.log(`[LongCat] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
+          console.log(`[LongCat] Switching API Key (${isTimeout ? 'Timeout' : 'Error'}): ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;
     }
-  }, 3);
-
+  }, 5);
   const content = response?.choices?.[0]?.message?.content || '';
   const usage = response?.usage;
   
@@ -130,11 +131,13 @@ export async function thinkFast(
       
       console.error(`[LongCat] API error (${status}): ${message}`, body ? `Body: ${JSON.stringify(body)}` : '');
 
-      if (status === 401 || status === 403 || status === 404 || status === 429) {
+      const isTimeout = message?.includes('timed out') || message?.includes('timeout') || status === 408;
+
+      if (status === 401 || status === 403 || status === 404 || status === 429 || isTimeout) {
         if (apiKeys.length > 1) {
           const prevIndex = currentKeyIndex;
           currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-          console.log(`[LongCat] Switching API Key: ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
+          console.log(`[LongCat] Switching API Key (${isTimeout ? 'Timeout' : 'Error'}): ${prevIndex + 1} -> ${currentKeyIndex + 1}/${apiKeys.length}`);
         }
       }
       throw error;
@@ -154,3 +157,4 @@ export async function thinkFast(
   }
   return content;
 }
+

@@ -13,13 +13,16 @@ export async function retryWithBackoff<T>(
       
       if (attempt === maxRetries) break;
 
-      const isRateLimit = error?.status === 429 || String(error?.message).includes('429') || String(error?.message).includes('上限');
-      // Longer delay for rate limits (base 5s instead of 1s)
-      const actualBase = isRateLimit ? 5000 : baseDelay;
+      const msg = String(error?.message || error);
+      const isRateLimit = error?.status === 429 || msg.includes('429') || msg.includes('上限');
+      const isTimeout = msg.includes('timed out') || msg.includes('timeout') || error?.status === 408;
+      
+      // Longer delay for rate limits and timeouts (base 5s instead of 1s)
+      const actualBase = (isRateLimit || isTimeout) ? 5000 : baseDelay;
       const delay = actualBase * Math.pow(2, attempt) + Math.random() * 1000;
       
       console.warn(
-        `[Retry] Attempt ${attempt + 1}/${maxRetries} failed: ${lastError.message || lastError}. Retrying in ${Math.round(delay)}ms... ${isRateLimit ? '(Rate Limit Detected)' : ''}`
+        `[Retry] Attempt ${attempt + 1}/${maxRetries} failed: ${msg}. Retrying in ${Math.round(delay)}ms... ${isRateLimit ? '(Rate Limit)' : isTimeout ? '(Timeout)' : ''}`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
