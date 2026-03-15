@@ -20,9 +20,15 @@ You have a "Graveyard" of past rejected ideas. DO NOT repeat these mistakes.`,
       role: 'user' as const,
       content: `Create a research plan for finding startup opportunities in March 2026.
       
-CURRENT DATE: ${currentDate}
-FOCUS AREAS: ${focusAreas.length > 0 ? focusAreas.join(', ') : 'Open to any industry'}
+CURRENT DATE: March 2026
+FOCUS AREAS: ${focusAreas.length > 0 ? focusAreas.join(', ') : 'BROAD SEARCH (Explore any industry)'}
 EXCLUDED: ${excludedCategories.length > 0 ? excludedCategories.join(', ') : 'None'}
+
+INSTRUCTION FOR FOCUS:
+- If FOCUS AREAS is provided, strictly stay within these industries.
+- If FOCUS AREAS is "BROAD SEARCH", search across any high-potential industry BUT strictly avoid the EXCLUDED list.
+- Prioritize high-signal complaints from Reddit/Twitter and "broken" legacy industries.
+
 FOUNDER SKILLS: ${founderSkills.length > 0 ? founderSkills.join(', ') : 'General'}
 ${customCriteria ? `CUSTOM CRITERIA: ${customCriteria}` : ''}
 

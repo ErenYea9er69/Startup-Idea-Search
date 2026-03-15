@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { INDUSTRY_PRESETS, EXCLUSION_PRESETS } from '@/lib/presets';
 
 interface PipelineEvent {
   type: string;
@@ -100,6 +101,30 @@ export default function PipelinePage() {
       setExcludeInput('');
     }
   };
+
+  const toggleFocusPreset = (p: string) => {
+    if (focusAreas.includes(p)) {
+      setFocusAreas(focusAreas.filter(x => x !== p));
+    } else {
+      setFocusAreas([...focusAreas, p]);
+      // Auto-exclude all other INDUSTRY presets that aren't this one
+      const others = INDUSTRY_PRESETS.flatMap(g => g.items).filter(item => item !== p);
+      setExcluded(prev => Array.from(new Set([...prev, ...others])));
+    }
+  };
+
+  const toggleExcludePreset = (p: string) => {
+    if (excluded.includes(p)) {
+      setExcluded(excluded.filter(x => x !== p));
+    } else {
+      setExcluded([...excluded, p]);
+      // Also remove from focus if it's there
+      setFocusAreas(prev => prev.filter(x => x !== p));
+    }
+  };
+
+  const clearExclusions = () => setExcluded([]);
+  const clearFocus = () => setFocusAreas([]);
 
   const getEstimate = async () => {
     const res = await fetch('/api/estimate', {
@@ -218,9 +243,11 @@ export default function PipelinePage() {
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 32, alignItems: 'start' }}>
           <div className="card">
             <h3 className="section-title">Pipeline Configuration</h3>
-
             <div className="form-group">
-              <label className="label">Focus Areas / Industries</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label className="label" style={{ marginBottom: 0 }}>Focus Areas / Industries</label>
+                <button className="btn-link" onClick={clearFocus}>Clear All</button>
+              </div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                 <input
                   className="input"
@@ -238,15 +265,45 @@ export default function PipelinePage() {
                   </span>
                 ))}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                {['B2B SaaS', 'HealthTech', 'Agentic AI', 'Fintech', 'CleanTech', 'EdTech'].map(p => (
-                   <button key={p} className="btn-small" onClick={() => !focusAreas.includes(p) && setFocusAreas([...focusAreas, p])}>+ {p}</button>
+              
+              <div style={{ 
+                marginTop: 12, 
+                maxHeight: '200px', 
+                overflowY: 'auto', 
+                padding: '12px', 
+                background: 'rgba(255,255,255,0.03)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                {INDUSTRY_PRESETS.map(group => (
+                  <div key={group.name} style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 8 }}>{group.name}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {group.items.map(p => {
+                        const isFocused = focusAreas.includes(p);
+                        const isExcluded = excluded.includes(p);
+                        return (
+                          <button 
+                            key={p} 
+                            className={`preset-btn ${isFocused ? 'active' : ''} ${isExcluded ? 'dimmed' : ''}`}
+                            onClick={() => toggleFocusPreset(p)}
+                            title={isExcluded ? "Currently excluded" : ""}
+                          >
+                            {p}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
 
             <div className="form-group">
-              <label className="label">Excluded Categories</label>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label className="label" style={{ marginBottom: 0 }}>Excluded Categories</label>
+                <button className="btn-link" onClick={clearExclusions}>Clear All</button>
+              </div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
                 <input
                   className="input"
@@ -264,9 +321,34 @@ export default function PipelinePage() {
                   </span>
                 ))}
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                {['Crypto', 'Gambling', 'Dating', 'Dropshipping', 'AI Wrappers', 'Social Media'].map(p => (
-                   <button key={p} className="btn-small-rose" onClick={() => !excluded.includes(p) && setExcluded([...excluded, p])}>+ {p}</button>
+
+              <div style={{ 
+                marginTop: 12, 
+                maxHeight: '200px', 
+                overflowY: 'auto', 
+                padding: '12px', 
+                background: 'rgba(255,255,255,0.03)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                {EXCLUSION_PRESETS.map(group => (
+                  <div key={group.name} style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#666', marginBottom: 8 }}>{group.name}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {group.items.map(p => {
+                        const isExcluded = excluded.includes(p);
+                        return (
+                          <button 
+                            key={p} 
+                            className={`preset-btn-rose ${isExcluded ? 'active' : ''}`}
+                            onClick={() => toggleExcludePreset(p)}
+                          >
+                            {p}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
