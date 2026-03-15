@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <span className="nav-icon">💡</span>
                 <span>Ideas</span>
               </Link>
-              <Link href="/onboarding" className="nav-link">
+              <Link href="/profile" className="nav-link">
                 <span className="nav-icon">👤</span>
                 <span>Profile</span>
               </Link>

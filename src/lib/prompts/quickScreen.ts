@@ -1,26 +1,34 @@
 import { thinkFast } from '../longcat';
 
-export async function quickScreen(ideas: string, rejectedIdeas: string[]): Promise<string> {
+export async function quickScreen(
+  ideas: string, 
+  rejectedIdeas: string[], 
+  founderDNA: { skills: string[], budget: string, timeCommitment: string } | null
+): Promise<string> {
   const messages = [
     {
       role: 'system' as const,
-      content: `You are a rapid startup screener. Your job is to quickly eliminate obviously bad ideas before deep validation. Be ruthless but fair. Kill ideas that clearly violate exclusion rules or have obvious fatal flaws.`,
+      content: `You are a rapid startup screener. Your job is to quickly eliminate obviously bad ideas before deep validation. 
+      BE RUTHLESS. Kill ideas that are clearly a bad match for the founder's DNA or are generic garbage.`,
     },
     {
       role: 'user' as const,
-      content: `Quickly screen these startup ideas. Kill any that are obviously bad.
+      content: `FOUNDER DNA:
+- Skills: ${founderDNA?.skills.join(', ') || 'Generalist'}
+- Budget Path: ${founderDNA?.budget || 'Bootstrap'}
+- Time: ${founderDNA?.timeCommitment || 'Full-time'}
 
 IDEAS:
 ${ideas}
 
-PREVIOUSLY REJECTED (similar ideas should be killed):
+PREVIOUSLY REJECTED:
 ${rejectedIdeas.slice(0, 10).join(', ') || 'None'}
 
 Kill criteria:
+- Poor Founder-Idea Fit (Founder lacks skills even for an MVP)
+- Budget mismatch (Venture-scale idea for a $0 budget founder)
 - Too similar to existing well-funded solutions
-- Clearly a service business disguised as software
 - Generic AI wrapper with no real moat
-- Customer acquisition would be harder than building
 - Too similar to a previously rejected idea
 
 Output JSON:

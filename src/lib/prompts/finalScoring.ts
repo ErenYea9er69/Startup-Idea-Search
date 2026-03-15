@@ -1,6 +1,10 @@
 import { thinkDeep } from '../longcat';
 
-export async function finalScoring(idea: string, allPhaseResults: string, founderProfile: string): Promise<string> {
+export async function finalScoring(
+  idea: string, 
+  allPhaseResults: string, 
+  founderDNA: { name: string, skills: string[], bio: string, budget: string, timeCommitment: string } | null
+): Promise<string> {
   const messages = [
     {
       role: 'system' as const,
@@ -16,8 +20,12 @@ ${idea}
 ALL VALIDATION RESULTS:
 ${allPhaseResults}
 
-FOUNDER PROFILE:
-${founderProfile}
+FOUNDER DNA:
+- Name: ${founderDNA?.name || 'Anonymous'}
+- Skills: ${founderDNA?.skills.join(', ') || 'Generalist'}
+- Bio: ${founderDNA?.bio || 'No bio provided'}
+- Budget Path: ${founderDNA?.budget || 'Bootstrap'}
+- Time Commitment: ${founderDNA?.timeCommitment || 'Full-time'}
 
 Score 1-10 on each dimension:
 1. Competition Realism (10 = truly less competitive, not just obscure)

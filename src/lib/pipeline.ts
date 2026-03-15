@@ -104,9 +104,18 @@ export async function runPipeline(
     });
 
     // Load founder profile
-    const founderProfile = await prisma.founderProfile.findUnique({ where: { id: 'default' } });
-    const founderStr = founderProfile
-      ? `Skills: ${JSON.stringify(founderProfile.skills)}, Budget: ${founderProfile.budget}, Team: ${founderProfile.teamSize}, Time: ${founderProfile.timeCommitment}`
+    const profile = await prisma.founderProfile.findUnique({ where: { id: 'default' } });
+    const founderDNA = profile ? {
+      name: profile.name,
+      skills: typeof profile.skills === 'string' ? JSON.parse(profile.skills) : (profile.skills || []),
+      bio: profile.bio,
+      budget: profile.budget,
+      availableHours: profile.availableHours,
+      timeCommitment: profile.timeCommitment
+    } : null;
+
+    const founderStr = founderDNA
+      ? `Name: ${founderDNA.name}, Skills: ${founderDNA.skills.join(', ')}, Budget: ${founderDNA.budget}, Time: ${founderDNA.timeCommitment}`
       : 'No profile set — assume solo technical founder';
 
     // Load rejected ideas (Deep Failure Memory)
@@ -150,7 +159,7 @@ export async function runPipeline(
           config.focusAreas,
           config.excludedCategories,
           fullFailureContext,
-          founderProfile ? (founderProfile.skills as string[]) : [],
+          founderDNA,
           config.customCriteria
         );
         const researchPlan = safeJsonParse(researchPlanRaw);
@@ -276,7 +285,7 @@ export async function runPipeline(
 
       // ═══ STEP 8: Quick Screen ═══
       emit('phase_start', { phase: 'screening', iteration });
-      const screenRaw = await quickScreen(JSON.stringify(ideas), rejectedNamesOnly);
+      const screenRaw = await quickScreen(JSON.stringify(ideas), rejectedNamesOnly, founderDNA);
       const screenData = safeJsonParse(screenRaw) as { survivors?: { name: string }[]; killed?: { name: string; reason: string }[] };
       const survivorNames = (screenData.survivors || []).map((s) => s.name);
       const survivors = ideas.filter((i) => survivorNames.includes(String(i.name)));
@@ -380,7 +389,7 @@ export async function runPipeline(
           // Phase 8: Final Scoring
           const { parsed: phase8 } = await runPhase('Final Scoring', 8, async () => {
             const allPhases = JSON.stringify({ phase1, phase2, phase3, phase4, phase5, phase6, phase7 });
-            const raw = await finalScoring(ideaStr, allPhases, founderStr);
+            const raw = await finalScoring(ideaStr, allPhases, founderDNA);
             const parsed = safeJsonParse(raw);
             
             // GHOST IDEA PROTECTION: Ensure scores exist and are valid

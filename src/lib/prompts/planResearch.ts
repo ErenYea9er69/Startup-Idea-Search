@@ -3,8 +3,8 @@ import { thinkFast } from '../longcat';
 export async function planResearch(
   focusAreas: string[],
   excludedCategories: string[],
-  pastRejections: string, // Detailed failures: "Name: Reason (Phase)"
-  founderSkills: string[],
+  pastRejections: string, 
+  founderDNA: { name: string, skills: string[], bio: string, budget: string, timeCommitment: string, availableHours: number } | null,
   customCriteria?: string
 ): Promise<string> {
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -29,7 +29,13 @@ INSTRUCTION FOR FOCUS:
 - If FOCUS AREAS is "BROAD SEARCH", search across any high-potential industry BUT strictly avoid the EXCLUDED list.
 - Prioritize high-signal complaints from Reddit/Twitter and "broken" legacy industries.
 
-FOUNDER SKILLS: ${founderSkills.length > 0 ? founderSkills.join(', ') : 'General'}
+FOUNDER DNA:
+- Name: ${founderDNA?.name || 'Anonymous'}
+- Skills: ${founderDNA?.skills.join(', ') || 'Generalist'}
+- Bio: ${founderDNA?.bio || 'No bio provided'}
+- Budget Path: ${founderDNA?.budget || 'Bootstrap'}
+- Time Commitment: ${founderDNA?.timeCommitment || 'Full-time'} (${founderDNA?.availableHours || 40}h/week)
+
 ${customCriteria ? `CUSTOM CRITERIA: ${customCriteria}` : ''}
 
 THE GRAVEYARD (Past Failures & Lessons):

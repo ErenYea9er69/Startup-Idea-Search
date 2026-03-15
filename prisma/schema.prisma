@@ -5,17 +5,20 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 model FounderProfile {
-  id             String  @id @default("default")
-  skills         Json    @default("[]")
-  budget         String  @default("bootstrap")
-  teamSize       Int     @default(1)
-  timeCommitment String  @default("full-time")
-  industries     Json    @default("[]")
-  dealBreakers   Json    @default("[]")
+  id             String   @id @default("default")
+  name           String   @default("")
+  bio            String   @default("") @db.Text
+  skills         Json     @default("[]")
+  budget         String   @default("bootstrap")
+  teamSize       Int      @default(1)
+  timeCommitment String   @default("full-time")
+  availableHours Int      @default(40)
+  industries     Json     @default("[]")
+  dealBreakers   Json     @default("[]")
+  updatedAt      DateTime @default(now()) @updatedAt
 }
 
 model PipelineRun {
