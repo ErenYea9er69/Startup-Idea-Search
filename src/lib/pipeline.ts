@@ -41,9 +41,11 @@ type EventCallback = (event: PipelineEvent) => void;
 function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Record<string, unknown> {
   if (!text) return fallback;
   try {
-    // Basic cleanup
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    let jsonStr = jsonMatch ? jsonMatch[0] : text;
+    // 🧹 Clean up markdown blocks if present
+    let jsonStr = text.replace(/```json\s?|```/g, '').trim();
+    
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    jsonStr = jsonMatch ? jsonMatch[0] : jsonStr;
     
     // JSON REPAIR: If it looks truncated (missing closing braces), try to fix
     let openBraces = (jsonStr.match(/\{/g) || []).length;
@@ -55,7 +57,7 @@ function safeJsonParse(text: string, fallback: Record<string, unknown> = {}): Re
 
     return JSON.parse(jsonStr);
   } catch (err) {
-    console.warn('[Pipeline] Failed to parse JSON from text:', text.substring(0, 100) + '...');
+    console.warn('[Pipeline] Failed to parse JSON from text:', text.substring(0, 150) + '...');
     return fallback;
   }
 }
@@ -104,7 +106,7 @@ export async function runPipeline(
     });
 
     // Load founder profile
-    const profile = await prisma.founderProfile.findUnique({ where: { id: 'default' } });
+    const profile = await prisma.founderProfile.findUnique({ where: { id: 'default' } }) as any;
     const founderDNA = profile ? {
       name: profile.name,
       skills: typeof profile.skills === 'string' ? JSON.parse(profile.skills) : (profile.skills || []),
@@ -310,6 +312,7 @@ export async function runPipeline(
       await prisma.pipelineRun.update({ where: { id: runId }, data: { currentPhase: 'deep_validation', currentStep: 9 } });
 
       const validatedResults: any[] = [];
+      const iterationRejections: { name: string; reason: string }[] = [];
       
       // Sequential processing to prevent API bursts and handle each idea with full retry attention
       for (const idea of survivors) {
@@ -407,20 +410,88 @@ export async function runPipeline(
             ...(compResults.results || []).map((r: any) => r.url),
             ...(pricingResults.results || []).map((r: any) => r.url),
           ].filter(Boolean).slice(0, 20);
+
+          // ═══ STEP 10: Score & Immediate Persistence ═══
+          const compositeScores = (phase8.compositeScores || {}) as any;
+          const overallScore = Number(compositeScores.overallWinnability || 0);
+          const isWinner = overallScore >= config.scoringThreshold;
+          const status = isWinner ? 'promising' : 'rejected';
           
-          validatedResults.push({
+          const result = {
             idea,
             validation: { phase1, phase2, phase3, phase4, phase5, phase6, phase7, phase8 },
             scores: phase8.scores,
-            compositeScores: phase8.compositeScores,
-            overallScore: Number((phase8.compositeScores as any)?.overallWinnability || 0),
+            compositeScores,
+            overallScore,
             category: phase8.category,
             verdict: phase8.verdict,
             verdictLabel: phase8.verdictLabel,
             founderFitScore: phase8.founderFitScore,
             competitors: phase2.competitors,
             sources,
+          };
+
+          // Save idea to DB immediately
+          const savedIdea = await prisma.idea.create({
+            data: {
+              runId,
+              name: String(idea.name),
+              industry: String(idea.industry),
+              businessType: String(idea.businessType || ''),
+              problem: String(idea.problem || ''),
+              customer: String(idea.customer || ''),
+              budgetOwner: String(idea.budgetOwner || ''),
+              currentWorkaround: String(idea.currentWorkaround || ''),
+              whyNow: String(idea.whyNow || ''),
+              fastestMVP: String(idea.fastestMVP || ''),
+              goToMarket: String(idea.goToMarket || ''),
+              status,
+              category: String(result.category || ''),
+              overallScore: result.overallScore,
+              scores: result.scores as any,
+              compositeScores: result.compositeScores as any,
+              validation: result.validation as any,
+              sources: result.sources as any,
+              competitors: result.competitors as any,
+              founderFitScore: Number(result.founderFitScore) || undefined,
+            },
           });
+
+          if (isWinner) {
+            hasWinners = true;
+            emit('idea_accepted', { name: idea.name, score: result.overallScore, verdict: result.verdictLabel, category: result.category });
+
+            // Generate action plan immediately
+            try {
+              const planRaw = await generateActionPlan(JSON.stringify(idea), JSON.stringify(result.validation));
+              const plan = safeJsonParse(planRaw);
+              await prisma.idea.update({
+                where: { id: savedIdea.id },
+                data: { actionPlan: plan as any },
+              });
+              emit('action_plan_generated', { idea: idea.name });
+            } catch (apErr) {
+              console.warn(`[Pipeline] Action plan failed for ${ideaName}:`, apErr);
+            }
+          } else {
+            const reason = String(result.verdictLabel || `Score ${result.overallScore} below threshold ${config.scoringThreshold}`);
+            emit('idea_rejected', { name: idea.name, score: result.overallScore, reason });
+
+            // Add to blacklist
+            try {
+              await prisma.rejectedIdea.create({
+                data: {
+                  name: String(idea.name),
+                  reason,
+                  category: String(idea.industry || ''),
+                  failedPhase: findWeakestPhase(result.scores as Record<string, number>),
+                },
+              });
+            } catch {}
+            iterationRejections.push({ name: String(idea.name), reason });
+          }
+
+          validatedResults.push(result);
 
         } catch (err) {
           emit('validation_error', { idea: ideaName, error: String(err) });
@@ -428,77 +499,7 @@ export async function runPipeline(
         }
       }
 
-      // ═══ STEP 10: Score & Decide ═══
-      emit('phase_start', { phase: 'scoring', iteration });
-
-      const iterationRejections: { name: string; reason: string }[] = [];
-
-      for (const result of validatedResults) {
-        if (!result) continue;
-
-        const isWinner = result.overallScore >= config.scoringThreshold;
-        const status = isWinner ? 'promising' : 'rejected';
-
-        // Save idea to DB
-        const savedIdea = await prisma.idea.create({
-          data: {
-            runId,
-            name: String(result.idea.name),
-            industry: String(result.idea.industry),
-            businessType: String(result.idea.businessType || ''),
-            problem: String(result.idea.problem || ''),
-            customer: String(result.idea.customer || ''),
-            budgetOwner: String(result.idea.budgetOwner || ''),
-            currentWorkaround: String(result.idea.currentWorkaround || ''),
-            whyNow: String(result.idea.whyNow || ''),
-            fastestMVP: String(result.idea.fastestMVP || ''),
-            goToMarket: String(result.idea.goToMarket || ''),
-            status,
-            category: String(result.category || ''),
-            overallScore: result.overallScore,
-            scores: result.scores as any,
-            compositeScores: result.compositeScores as any,
-            validation: result.validation as any,
-            sources: result.sources as any,
-            competitors: result.competitors as any,
-            founderFitScore: Number(result.founderFitScore) || undefined,
-          },
-        });
-
-        if (isWinner) {
-          hasWinners = true;
-          emit('idea_accepted', { name: result.idea.name, score: result.overallScore, verdict: result.verdictLabel, category: result.category });
-
-          // Generate action plan for winners
-          emit('phase_start', { phase: 'action_plan', iteration });
-          try {
-            const planRaw = await generateActionPlan(JSON.stringify(result.idea), JSON.stringify(result.validation));
-            const plan = safeJsonParse(planRaw);
-            await prisma.idea.update({
-              where: { id: savedIdea.id },
-              data: { actionPlan: plan as any },
-            });
-            emit('action_plan_generated', { idea: result.idea.name });
-          } catch {}
-        } else {
-          const reason = String(result.verdictLabel || `Score ${result.overallScore} below threshold ${config.scoringThreshold}`);
-          emit('idea_rejected', { name: result.idea.name, score: result.overallScore, reason });
-
-          // Add to blacklist
-          try {
-            await prisma.rejectedIdea.create({
-              data: {
-                name: String(result.idea.name),
-                reason,
-                category: String(result.idea.industry || ''),
-                failedPhase: findWeakestPhase(result.scores as Record<string, number>),
-              },
-            });
-          } catch {}
-
-          iterationRejections.push({ name: String(result.idea.name), reason });
-        }
-      }
+      // ═══ STEP 11: Pivot Learning ═══
 
       // Update iteration with failure lessons
       if (iterationRejections.length > 0) {
